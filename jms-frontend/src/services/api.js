@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const PROD_API_URL = "https://YOUR_BACKEND_URL_FROM_RENDER.onrender.com";
+const PROD_API_URL = "https://vinayak-jwellers-buildwithinfovion.onrender.com";
 
 // Vite uses import.meta.env, not process.env
 const isProduction = import.meta.env.MODE === "production";
