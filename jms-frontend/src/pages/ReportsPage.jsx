@@ -305,6 +305,7 @@ const ReportsPage = () => {
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         title={`Invoice Details: #${selectedSale?.invoiceNumber}`}
+        maxWidth="max-w-2xl"
       >
         <SaleDetailModal sale={selectedSale} onClose={handleCloseModal} />
       </Modal>

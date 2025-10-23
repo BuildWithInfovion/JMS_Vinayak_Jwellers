@@ -14,10 +14,10 @@ const PosPage = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [customerAddress, setCustomerAddress] = useState("");
-  const [makingCharges, setMakingCharges] = useState(0);
+  const [customerMobile, setCustomerMobile] = useState(""); // Mobile state
+  // Making charges state removed
   const [advancePayment, setAdvancePayment] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
-  const [customerMobile, setCustomerMobile] = useState(""); // Added Mobile State
 
   const fetchProductsForPOS = async () => {
     setIsLoading(true);
@@ -67,6 +67,7 @@ const PosPage = () => {
             : item
         );
       }
+      // Add item with makingChargePerGram state
       return [
         ...prevItems,
         {
@@ -75,6 +76,7 @@ const PosPage = () => {
           sellingWeight: productToAdd.weight || 0,
           sellingPricePerGram: productToAdd.pricePerGram || 0,
           sellingPurity: productToAdd.purity || "",
+          makingChargePerGram: 0, // Initialize making charge per gram
         },
       ];
     });
@@ -138,19 +140,24 @@ const PosPage = () => {
     );
   };
 
+  // Handler for updating per-item making charge
+  const handleUpdateCartMakingCharge = (productId, charge) => {
+    setCartItems((prevItems) =>
+      prevItems.map((item) =>
+        item._id === productId ? { ...item, makingChargePerGram: charge } : item
+      )
+    );
+  };
+
   const handleGenerateInvoice = () => {
     if (cartItems.length === 0) {
       alert("Cart is empty.");
       return;
     }
-
-    // Check for customer mobile
     if (!customerMobile) {
       alert("Error: Please enter the Customer Mobile Number.");
-      return; // Stop if mobile is missing
+      return;
     }
-
-    // Check item details (weight/price)
     const invalidItem = cartItems.find((item) => {
       const isPricedByGram = item.category !== "Others";
       if (
@@ -162,6 +169,7 @@ const PosPage = () => {
       if (isPricedByGram && (!item.sellingWeight || item.sellingWeight <= 0)) {
         return true;
       }
+      // Making charge per gram is optional, no check needed here
       return false;
     });
     if (invalidItem) {
@@ -176,12 +184,20 @@ const PosPage = () => {
   const handleConfirmSale = async (saleData) => {
     setIsSaving(true);
     try {
+      // Calculate totalMakingCharges from cartItems before sending
+      const totalMakingCharges = cartItems.reduce((total, item) => {
+        const itemMakingCharge =
+          (item.sellingWeight || 0) * (item.makingChargePerGram || 0);
+        return total + itemMakingCharge * item.quantity;
+      }, 0);
+
       const salePayload = {
-        ...saleData,
+        ...saleData, // Contains subtotal, totalAmount, balanceDue
         customerName: customerName,
         customerAddress: customerAddress,
-        customerMobile: customerMobile, // <-- Pass mobile
-        makingCharges: makingCharges,
+        customerMobile: customerMobile,
+        // makingCharges: makingCharges, // Removed old single charge
+        totalMakingCharges: totalMakingCharges, // Send calculated total
         advancePayment: advancePayment,
         items: cartItems.map((item) => ({
           _id: item._id,
@@ -190,6 +206,7 @@ const PosPage = () => {
           sellingWeight: item.sellingWeight,
           sellingPricePerGram: item.sellingPricePerGram,
           sellingPurity: item.sellingPurity,
+          makingChargePerGram: item.makingChargePerGram || 0, // Send per-item charge
         })),
       };
       await createSale(salePayload);
@@ -197,8 +214,8 @@ const PosPage = () => {
       setCartItems([]);
       setCustomerName("");
       setCustomerAddress("");
-      setCustomerMobile(""); // <-- Reset mobile
-      setMakingCharges(0);
+      setCustomerMobile("");
+      // setMakingCharges(0); // Removed old charge reset
       setAdvancePayment(0);
       setIsInvoiceModalOpen(false);
       fetchProductsForPOS();
@@ -282,24 +299,10 @@ const PosPage = () => {
                   className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3"
                 />
               </div>
-              <div>
-                <label
-                  htmlFor="makingCharges"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Making Charges
-                </label>
-                <input
-                  type="number"
-                  id="makingCharges"
-                  value={makingCharges}
-                  onChange={(e) =>
-                    setMakingCharges(parseFloat(e.target.value) || 0)
-                  }
-                  className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3"
-                />
-              </div>
-              <div>
+              {/* Making Charges Input Removed */}
+              <div className="md:col-start-2">
+                {" "}
+                {/* Align Advance under Mobile */}
                 <label
                   htmlFor="advancePayment"
                   className="block text-sm font-medium text-gray-700"
@@ -321,7 +324,7 @@ const PosPage = () => {
 
           <Cart
             items={cartItems}
-            makingCharges={makingCharges}
+            // makingCharges prop removed
             advancePayment={advancePayment}
             onIncrease={handleIncreaseQuantity}
             onDecrease={handleDecreaseQuantity}
@@ -330,6 +333,7 @@ const PosPage = () => {
             onUpdatePrice={handleUpdateCartPrice}
             onUpdateWeight={handleUpdateCartWeight}
             onUpdatePurity={handleUpdateCartPurity}
+            onUpdateMakingCharge={handleUpdateCartMakingCharge} // Pass new handler
           />
         </div>
       </div>
@@ -339,13 +343,14 @@ const PosPage = () => {
         isOpen={isInvoiceModalOpen}
         onClose={() => setIsInvoiceModalOpen(false)}
         title="Invoice Preview"
+        maxWidth="max-w-2xl"
       >
         <InvoicePreview
-          items={cartItems}
+          items={cartItems} // Pass items array which contains per-item making charge
           customerName={customerName}
           customerAddress={customerAddress}
-          customerMobile={customerMobile} // <-- Pass mobile
-          makingCharges={makingCharges}
+          customerMobile={customerMobile}
+          // makingCharges prop removed
           advancePayment={advancePayment}
           onClose={() => setIsInvoiceModalOpen(false)}
           onConfirm={handleConfirmSale}

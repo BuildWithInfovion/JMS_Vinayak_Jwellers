@@ -1,11 +1,10 @@
 // frontend/src/pages/GahanPage.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react"; // <-- Import useMemo
 import Modal from "../components/common/Modal";
 import { addGahan, getGahanRecords, releaseGahan } from "../services/api";
 import GahanReceiptModal from "../components/gahan/GahanReceiptModal";
 
 const GahanPage = () => {
-  // ... (All existing state: gahanRecords, isLoading, modals, formData are unchanged) ...
   const [gahanRecords, setGahanRecords] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -25,7 +24,11 @@ const GahanPage = () => {
   };
   const [formData, setFormData] = useState(initialFormData);
 
-  // ... (fetchGahanRecords, handleInputChange, handleAddGahan, handleRelease, formatDate are unchanged) ...
+  // --- NEW: Search State ---
+  const [searchCustomer, setSearchCustomer] = useState("");
+  const [searchItem, setSearchItem] = useState("");
+  // -------------------------
+
   const fetchGahanRecords = async () => {
     setIsLoading(true);
     try {
@@ -37,13 +40,30 @@ const GahanPage = () => {
       setIsLoading(false);
     }
   };
+
   useEffect(() => {
     fetchGahanRecords();
   }, []);
+
+  // --- NEW: Filter records based on search ---
+  const filteredRecords = useMemo(() => {
+    return gahanRecords.filter((record) => {
+      const customerName = (record.customerName || "").toLowerCase();
+      const itemName = (record.itemName || "").toLowerCase();
+
+      const customerMatch = customerName.includes(searchCustomer.toLowerCase());
+      const itemMatch = itemName.includes(searchItem.toLowerCase());
+
+      return customerMatch && itemMatch; // Must match both
+    });
+  }, [gahanRecords, searchCustomer, searchItem]);
+  // ------------------------------------------
+
   const handleInputChange = (e) => {
     const { id, value } = e.target;
     setFormData((prev) => ({ ...prev, [id]: value }));
   };
+
   const handleAddGahan = async (e) => {
     e.preventDefault();
     try {
@@ -60,19 +80,26 @@ const GahanPage = () => {
       );
     }
   };
+
   const handleRelease = async (id) => {
-    if (!window.confirm("Are you sure?")) {
+    if (
+      !window.confirm("Are you sure you want to mark this item as released?")
+    ) {
       return;
     }
     try {
       await releaseGahan(id);
-      fetchGahanRecords();
-      alert("Gahan item released!");
+      fetchGahanRecords(); // Refresh the list
+      alert("Gahan item released successfully!");
     } catch (error) {
       console.error("Failed to release Gahan item:", error);
-      alert("Error: " + (error.response?.data?.message || "Server error"));
+      alert(
+        "Error releasing item: " +
+          (error.response?.data?.message || "Server error")
+      );
     }
   };
+
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
     return new Date(dateString).toLocaleDateString("en-IN", {
@@ -81,18 +108,19 @@ const GahanPage = () => {
       year: "numeric",
     });
   };
+
   const handleViewGahan = (record) => {
     setSelectedGahan(record);
     setIsViewModalOpen(true);
   };
+
   const handleCloseViewModal = () => {
     setIsViewModalOpen(false);
     setSelectedGahan(null);
   };
 
-  // --- UPDATED: isOverdue and NEW isDueSoon ---
-  const today = new Date(); // Get today's date once
-  today.setHours(0, 0, 0, 0); // Set time to beginning of the day for accurate comparison
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
   const isOverdue = (dueDate) => {
     if (!dueDate) return false;
@@ -107,87 +135,94 @@ const GahanPage = () => {
     due.setHours(0, 0, 0, 0);
     const sevenDaysFromNow = new Date(today);
     sevenDaysFromNow.setDate(today.getDate() + 7);
-
-    // Check if due date is between today and 7 days from now (inclusive)
     return due >= today && due <= sevenDaysFromNow;
   };
-  // ---------------------------------------------
 
   return (
     <>
       <div className="bg-white shadow rounded-lg p-4">
-        {/* ... (Header and Add button unchanged) ... */}
         <div className="flex justify-between items-center mb-4">
-          {" "}
-          <h3 className="text-2xl font-semibold">Gahan Management</h3>{" "}
+          <h3 className="text-2xl font-semibold">Gahan Management</h3>
           <button
             onClick={() => setIsAddModalOpen(true)}
             className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
           >
             + Add New Gahan
-          </button>{" "}
+          </button>
         </div>
 
+        {/* --- NEW Search Inputs --- */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <input
+            type="text"
+            placeholder="Search by Customer Name..."
+            value={searchCustomer}
+            onChange={(e) => setSearchCustomer(e.target.value)}
+            className="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+          />
+          <input
+            type="text"
+            placeholder="Search by Item Name..."
+            value={searchItem}
+            onChange={(e) => setSearchItem(e.target.value)}
+            className="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+          />
+        </div>
+        {/* ------------------------- */}
+
         {isLoading ? (
-          <p>Loading...</p>
+          <p>Loading Gahan records...</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
-              {/* ... (thead unchanged) ... */}
               <thead className="bg-gray-50">
-                {" "}
                 <tr>
-                  {" "}
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Customer
-                  </th>{" "}
+                  </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Mobile
-                  </th>{" "}
+                  </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Item
-                  </th>{" "}
+                  </th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
                     Weight(g)
-                  </th>{" "}
+                  </th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                    Amount
-                  </th>{" "}
+                    Amount Given
+                  </th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
                     Interest(%)
-                  </th>{" "}
+                  </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Pawn Date
-                  </th>{" "}
+                  </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Due Date
-                  </th>{" "}
+                  </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Actions
-                  </th>{" "}
-                </tr>{" "}
+                  </th>
+                </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {gahanRecords.length === 0 ? (
+                {/* --- Use filteredRecords --- */}
+                {filteredRecords.length === 0 ? (
                   <tr>
-                    {" "}
                     <td colSpan="9" className="text-center py-10 text-gray-500">
-                      No active Gahan records.
-                    </td>{" "}
+                      No Gahan records match your search.
+                    </td>
                   </tr>
                 ) : (
-                  gahanRecords.map((record) => {
-                    // --- UPDATED: Determine row class ---
+                  filteredRecords.map((record) => {
                     const overdue = isOverdue(record.dueDate);
-                    const dueSoon = !overdue && isDueSoon(record.dueDate); // Only apply if not already overdue
+                    const dueSoon = !overdue && isDueSoon(record.dueDate);
                     let rowClass = "";
                     if (overdue) rowClass = "bg-red-100";
                     else if (dueSoon) rowClass = "bg-yellow-100";
-                    // ------------------------------------
                     return (
                       <tr key={record._id} className={rowClass}>
-                        {" "}
-                        {/* <-- Apply class here */}
                         <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
                           {record.customerName}
                         </td>
@@ -209,7 +244,6 @@ const GahanPage = () => {
                         <td className="px-4 py-4 whitespace-nowrap text-sm">
                           {formatDate(record.pawnDate)}
                         </td>
-                        {/* --- UPDATED: Due Date Styling --- */}
                         <td
                           className={`px-4 py-4 whitespace-nowrap text-sm font-medium ${
                             overdue
@@ -221,53 +255,46 @@ const GahanPage = () => {
                         >
                           {formatDate(record.dueDate)}
                         </td>
-                        {/* ------------------------------- */}
                         <td className="px-4 py-4 whitespace-nowrap text-sm space-x-2">
                           <button
                             onClick={() => handleViewGahan(record)}
                             className="text-indigo-600 hover:text-indigo-800"
                           >
-                            {" "}
-                            View{" "}
+                            View
                           </button>
                           <button
                             onClick={() => handleRelease(record._id)}
                             className="text-blue-600 hover:text-blue-800 font-medium"
                           >
-                            {" "}
-                            Release{" "}
+                            Release
                           </button>
                         </td>
                       </tr>
                     );
                   })
                 )}
+                {/* --------------------------- */}
               </tbody>
             </table>
           </div>
         )}
       </div>
 
-      {/* ... (Add Gahan Modal and View Gahan Modal are unchanged) ... */}
+      {/* Add Gahan Modal */}
       <Modal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         title="Add New Gahan Record"
       >
-        {" "}
         <form onSubmit={handleAddGahan} className="space-y-4">
-          {" "}
-          {/* ... form ... */}{" "}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {" "}
             <div>
-              {" "}
               <label
                 htmlFor="customerName"
                 className="block text-sm font-medium text-gray-700"
               >
                 Customer Name *
-              </label>{" "}
+              </label>
               <input
                 type="text"
                 id="customerName"
@@ -275,48 +302,45 @@ const GahanPage = () => {
                 onChange={handleInputChange}
                 required
                 className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3"
-              />{" "}
-            </div>{" "}
+              />
+            </div>
             <div>
-              {" "}
               <label
                 htmlFor="customerMobile"
                 className="block text-sm font-medium text-gray-700"
               >
                 Mobile Number
-              </label>{" "}
+              </label>
               <input
                 type="tel"
                 id="customerMobile"
                 value={formData.customerMobile}
                 onChange={handleInputChange}
                 className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3"
-              />{" "}
-            </div>{" "}
+              />
+            </div>
             <div className="md:col-span-2">
-              {" "}
               <label
                 htmlFor="customerAddress"
                 className="block text-sm font-medium text-gray-700"
               >
                 Customer Address
-              </label>{" "}
+              </label>
               <input
                 type="text"
                 id="customerAddress"
                 value={formData.customerAddress}
                 onChange={handleInputChange}
                 className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3"
-              />{" "}
-            </div>{" "}
+              />
+            </div>
             <div>
-              {" "}
               <label
                 htmlFor="itemName"
                 className="block text-sm font-medium text-gray-700"
               >
                 Item Name *
-              </label>{" "}
+              </label>
               <input
                 type="text"
                 id="itemName"
@@ -324,16 +348,15 @@ const GahanPage = () => {
                 onChange={handleInputChange}
                 required
                 className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3"
-              />{" "}
-            </div>{" "}
+              />
+            </div>
             <div>
-              {" "}
               <label
                 htmlFor="itemWeight"
                 className="block text-sm font-medium text-gray-700"
               >
                 Item Weight (grams) *
-              </label>{" "}
+              </label>
               <input
                 type="number"
                 step="0.01"
@@ -342,32 +365,30 @@ const GahanPage = () => {
                 onChange={handleInputChange}
                 required
                 className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3"
-              />{" "}
-            </div>{" "}
+              />
+            </div>
             <div>
-              {" "}
               <label
                 htmlFor="itemPurity"
                 className="block text-sm font-medium text-gray-700"
               >
                 Item Purity (e.g., 22K)
-              </label>{" "}
+              </label>
               <input
                 type="text"
                 id="itemPurity"
                 value={formData.itemPurity}
                 onChange={handleInputChange}
                 className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3"
-              />{" "}
-            </div>{" "}
+              />
+            </div>
             <div>
-              {" "}
               <label
                 htmlFor="amountGiven"
                 className="block text-sm font-medium text-gray-700"
               >
                 Amount Given (Rs) *
-              </label>{" "}
+              </label>
               <input
                 type="number"
                 step="0.01"
@@ -376,16 +397,15 @@ const GahanPage = () => {
                 onChange={handleInputChange}
                 required
                 className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3"
-              />{" "}
-            </div>{" "}
+              />
+            </div>
             <div>
-              {" "}
               <label
                 htmlFor="interestRate"
                 className="block text-sm font-medium text-gray-700"
               >
                 Interest Rate (%) *
-              </label>{" "}
+              </label>
               <input
                 type="number"
                 step="0.1"
@@ -394,16 +414,15 @@ const GahanPage = () => {
                 onChange={handleInputChange}
                 required
                 className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3"
-              />{" "}
-            </div>{" "}
+              />
+            </div>
             <div>
-              {" "}
               <label
                 htmlFor="dueDate"
                 className="block text-sm font-medium text-gray-700"
               >
                 Due Date *
-              </label>{" "}
+              </label>
               <input
                 type="date"
                 id="dueDate"
@@ -411,53 +430,53 @@ const GahanPage = () => {
                 onChange={handleInputChange}
                 required
                 className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3"
-              />{" "}
-            </div>{" "}
-          </div>{" "}
+              />
+            </div>
+          </div>
           <div className="md:col-span-2">
-            {" "}
             <label
               htmlFor="notes"
               className="block text-sm font-medium text-gray-700"
             >
               Notes
-            </label>{" "}
+            </label>
             <textarea
               id="notes"
               value={formData.notes}
               onChange={handleInputChange}
               rows="3"
               className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3"
-            ></textarea>{" "}
-          </div>{" "}
+            ></textarea>
+          </div>
           <div className="flex justify-end space-x-3">
-            {" "}
             <button
               type="button"
               onClick={() => setIsAddModalOpen(false)}
               className="bg-gray-200 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-300"
             >
               Cancel
-            </button>{" "}
+            </button>
             <button
               type="submit"
               className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
             >
               Save Record
-            </button>{" "}
-          </div>{" "}
-        </form>{" "}
+            </button>
+          </div>
+        </form>
       </Modal>
+
+      {/* View Gahan Receipt Modal */}
       <Modal
         isOpen={isViewModalOpen}
         onClose={handleCloseViewModal}
         title="Gahan Receipt"
+        maxWidth="max-w-xl"
       >
-        {" "}
         <GahanReceiptModal
           gahanRecord={selectedGahan}
           onClose={handleCloseViewModal}
-        />{" "}
+        />
       </Modal>
     </>
   );

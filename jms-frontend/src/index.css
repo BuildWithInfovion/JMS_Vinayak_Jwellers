@@ -6,29 +6,53 @@
 body {
   @apply bg-gray-100 text-gray-800;
 }
-/* --- ADD THESE PRINT STYLES --- */
+
+/* --- REVISED PRINT STYLES --- */
 @media print {
-  /* Hide everything in the body by default */
+  /* Hide everything by default */
   body * {
     visibility: hidden;
   }
-  
-  /* Make the invoice content and its parent visible */
-  #invoice-content-printable, #invoice-content-printable * {
-    visibility: visible;
+
+  /* Make the modal backdrop, its content area (#invoice-content-printable),
+     and ALL children within those areas visible */
+  .modal-backdrop-print-visible,
+  .modal-backdrop-print-visible * {
+      visibility: visible;
   }
-  
-  /* Position the invoice at the top-left corner */
-  #invoice-content-printable {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
+
+  /* Ensure the backdrop takes up the whole page and resets positioning */
+  .modal-backdrop-print-visible {
+    position: absolute !important; /* Use important to override fixed */
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    height: auto !important; /* Allow content height */
+    overflow: visible !important;
+    background-color: white !important; /* Force white background */
+    padding: 0 !important;
+    margin: 0 !important;
+    z-index: 9999 !important; /* Ensure it's on top */
   }
-  
-  /* Hide buttons or other elements you don't want to print */
+
+   /* Ensure the specific printable content area is also positioned correctly within the backdrop */
+   #invoice-content-printable {
+      position: relative !important; /* Change from absolute if needed */
+      left: auto !important;
+      top: auto !important;
+      width: 100% !important;
+   }
+
+  /* Hide elements specifically marked with .print-hide */
   .print-hide {
-    display: none;
+    display: none !important;
+  }
+
+  /* Remove default browser margins */
+  body {
+     margin: 0 !important;
+     padding: 0 !important;
+     background-color: white !important;
   }
 }
 /* ----------------------------- */

@@ -1,61 +1,67 @@
 // frontend/src/components/pos/InvoicePreview.jsx
 import React from "react";
 
+// Remove makingCharges prop, as it's calculated from items
 const InvoicePreview = ({
   items,
   customerName,
   customerAddress,
-  customerMobile, // <-- Added mobile prop
-  makingCharges,
+  customerMobile,
   advancePayment,
   onClose,
   onConfirm,
   isSaving,
 }) => {
+  // Recalculate totals based on items array which includes per-item making charges
   const itemsSubtotal = items.reduce((total, item) => {
     const itemPrice =
       (item.sellingWeight || 0) * (item.sellingPricePerGram || 0);
     return total + itemPrice * item.quantity;
   }, 0);
-  const grandTotal = itemsSubtotal + (makingCharges || 0);
+
+  const totalMakingCharges = items.reduce((total, item) => {
+    const itemMakingCharge =
+      (item.sellingWeight || 0) * (item.makingChargePerGram || 0);
+    return total + itemMakingCharge * item.quantity;
+  }, 0);
+
+  const grandTotal = itemsSubtotal + totalMakingCharges; // Calculation includes MC
   const balanceDue = grandTotal - (advancePayment || 0);
 
   const handleConfirmAndPrint = () => {
     if (isSaving) return;
+    // Pass calculated totalMakingCharges
     onConfirm({
-      items: items,
+      items: items, // Items now contain makingChargePerGram
       totalAmount: grandTotal,
       subtotal: itemsSubtotal,
-      makingCharges: makingCharges,
+      totalMakingCharges: totalMakingCharges, // Pass calculated total
       advancePayment: advancePayment,
       balanceDue: balanceDue,
       customerName: customerName,
       customerAddress: customerAddress,
-      customerMobile: customerMobile, // <-- Include mobile in confirm data
+      customerMobile: customerMobile,
     });
   };
 
   return (
     <div className="text-gray-800">
-      {/* --- ID for Print Styles --- */}
       <div id="invoice-content-printable">
-        {/* --------------------------- */}
         {/* Header */}
         <div className="text-center mb-8">
-          <h2 className="text-2xl font-bold">Vinayak Jewellers,Gangakhed</h2>
+          <h2 className="text-2xl font-bold">Vinayak Jewellers, Gangakhed</h2>
           <p className="text-sm">सोने चांदीचे व्यापारी</p>
-          <p className="text-sm">Prop. Vinayak D. Didshere</p>
+          <p className="text-sm">Prop. Vinayak D. Dishe</p>
           <p className="text-sm">Mo. 9421462257</p>
         </div>
 
-        {/* --- Updated Customer Details --- */}
+        {/* Customer Details */}
         <div className="border-t border-b py-2 mb-6 text-sm">
           <div className="flex justify-between mb-1">
             <span>
               <strong>Name (श्री./सौ.):</strong> {customerName || "N/A"}
             </span>
             <span>
-              {/* Using localeDateString for just the date */}
               <strong>Date:</strong>{" "}
               {new Date().toLocaleDateString("en-IN", {
                 day: "2-digit",
@@ -64,7 +70,6 @@ const InvoicePreview = ({
               })}
             </span>
           </div>
-          {/* Display Mobile */}
           <div className="flex justify-between mb-1">
             <span>
               <strong>Mobile:</strong> {customerMobile || "N/A"}
@@ -76,57 +81,67 @@ const InvoicePreview = ({
             </span>
           </div>
         </div>
-        {/* -------------------------------- */}
 
         {/* Items Table */}
-        <table className="w-full mb-6">
+        <table className="w-full mb-6 text-sm">
           <thead>
             <tr className="border-b bg-gray-50">
-              <th className="text-left p-2 font-medium">
-                Item (वस्तूचे वर्णन)
-              </th>
-              <th className="text-center p-2 font-medium">Purity (शुध्दता)</th>{" "}
-              <th className="text-right p-2 font-medium">Weight (g)</th>
-              <th className="text-right p-2 font-medium">Rate (दर)</th>
-              <th className="text-right p-2 font-medium">Amount (किंमत)</th>
+              <th className="p-1 text-left font-medium">Item</th>
+              <th className="p-1 text-center font-medium">Purity</th>
+              <th className="p-1 text-right font-medium">Wt(g)</th>
+              <th className="p-1 text-right font-medium">Rate/g</th>
+              <th className="p-1 text-right font-medium">MC/g</th>
+              <th className="p-1 text-right font-medium">Amount</th>
             </tr>
           </thead>
           <tbody>
             {items.map((item) => {
               const itemWeight = item.sellingWeight || 0;
               const itemPricePerGram = item.sellingPricePerGram || 0;
-              const lineTotal = itemWeight * itemPricePerGram * item.quantity;
+              const itemMakingChargePerGram = item.makingChargePerGram || 0;
+              // Line amount includes base price + making charge for that item
+              const lineAmount =
+                itemWeight * itemPricePerGram +
+                itemWeight * itemMakingChargePerGram;
+              const lineTotal = lineAmount * item.quantity;
+
               return (
                 <tr key={item._id} className="border-b">
-                  <td className="p-2">
-                    {item.name} (Qty: {item.quantity})
+                  <td className="p-1">
+                    {item.name} (Qty:{item.quantity})
                   </td>
-                  <td className="text-center p-2">
+                  <td className="p-1 text-center">
                     {item.sellingPurity || "N/A"}
-                  </td>{" "}
-                  <td className="text-right p-2">{itemWeight.toFixed(2)}</td>
-                  <td className="text-right p-2">
+                  </td>
+                  <td className="p-1 text-right">{itemWeight.toFixed(2)}</td>
+                  <td className="p-1 text-right">
                     ₹{itemPricePerGram.toFixed(2)}
                   </td>
-                  <td className="text-right p-2">₹{lineTotal.toFixed(2)}</td>
+                  <td className="p-1 text-right">
+                    ₹{itemMakingChargePerGram.toFixed(2)}{" "}
+                  </td>
+                  <td className="p-1 text-right">₹{lineTotal.toFixed(2)}</td>
                 </tr>
               );
             })}
           </tbody>
         </table>
 
-        {/* Totals Section */}
+        {/* --- Updated Totals Section --- */}
         <div className="flex justify-end">
           <div className="w-1/2">
             <div className="flex justify-between py-1">
               <span>Subtotal:</span>
               <span>₹{itemsSubtotal.toFixed(2)}</span>
             </div>
+            {/* Making Charges line is REMOVED from display
             <div className="flex justify-between py-1">
               <span>Making Charges (मजुरी):</span>
-              <span>₹{(makingCharges || 0).toFixed(2)}</span>
+              <span>₹{totalMakingCharges.toFixed(2)}</span>
             </div>
+             */}
             <div className="flex justify-between py-2 border-t mt-2 font-bold text-lg">
+              {/* Grand Total STILL INCLUDES making charges */}
               <span>Total (एकूण):</span>
               <span>₹{grandTotal.toFixed(2)}</span>
             </div>
@@ -135,11 +150,13 @@ const InvoicePreview = ({
               <span>- ₹{(advancePayment || 0).toFixed(2)}</span>
             </div>
             <div className="flex justify-between py-2 border-t mt-2 font-bold text-xl text-blue-600">
+              {/* Balance Due STILL INCLUDES making charges */}
               <span>Balance Due (बाकी येणे):</span>
               <span>₹{balanceDue.toFixed(2)}</span>
             </div>
           </div>
         </div>
+        {/* ----------------------------- */}
       </div>
 
       {/* Action Buttons (with print-hide class) */}
