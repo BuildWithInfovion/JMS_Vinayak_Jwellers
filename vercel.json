@@ -4,13 +4,15 @@
     {
       "src": "jms-backend/package.json",
       "use": "@vercel/node",
-      "config": { "includeFiles": ["jms-backend/**"] }
+      "config": {
+        "includeFiles": ["jms-backend/**"]
+      }
     }
   ],
-  "routes": [
+  "rewrites": [
     {
-      "src": "/(.*)",
-      "dest": "/jms-backend/index.js"
+      "source": "/(.*)",
+      "destination": "/jms-backend/index.js"
     }
   ]
 }
