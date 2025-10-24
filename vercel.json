@@ -2,19 +2,15 @@
   "version": 2,
   "builds": [
     {
-      "src": "jms-backend/index.js",
+      "src": "jms-backend/package.json",
       "use": "@vercel/node",
       "config": { "includeFiles": ["jms-backend/**"] }
     }
   ],
   "routes": [
     {
-      "src": "/api/(.*)",
-      "dest": "jms-backend/index.js"
-    },
-     {
-      "src": "/",
-      "dest": "jms-backend/index.js"
+      "src": "/(.*)",
+      "dest": "/jms-backend/index.js"
     }
   ]
 }
