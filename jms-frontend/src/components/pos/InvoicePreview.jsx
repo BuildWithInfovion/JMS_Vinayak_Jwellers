@@ -30,7 +30,7 @@ const InvoicePreview = ({
 
   const handleConfirmAndPrint = () => {
     if (isSaving) return;
-    // Pass calculated totalMakingCharges
+    // Call the confirm handler first
     onConfirm({
       items: items, // Items now contain makingChargePerGram
       totalAmount: grandTotal,
@@ -42,6 +42,12 @@ const InvoicePreview = ({
       customerAddress: customerAddress,
       customerMobile: customerMobile,
     });
+
+    // --- Add Delay before Print ---
+    setTimeout(() => {
+      window.print();
+    }, 100); // Wait 100ms
+    // ----------------------------
   };
 
   return (
@@ -99,7 +105,6 @@ const InvoicePreview = ({
               const itemWeight = item.sellingWeight || 0;
               const itemPricePerGram = item.sellingPricePerGram || 0;
               const itemMakingChargePerGram = item.makingChargePerGram || 0;
-              // Line amount includes base price + making charge for that item
               const lineAmount =
                 itemWeight * itemPricePerGram +
                 itemWeight * itemMakingChargePerGram;
@@ -127,21 +132,15 @@ const InvoicePreview = ({
           </tbody>
         </table>
 
-        {/* --- Updated Totals Section --- */}
+        {/* Totals Section (Making charges line hidden) */}
         <div className="flex justify-end">
           <div className="w-1/2">
             <div className="flex justify-between py-1">
               <span>Subtotal:</span>
               <span>₹{itemsSubtotal.toFixed(2)}</span>
             </div>
-            {/* Making Charges line is REMOVED from display
-            <div className="flex justify-between py-1">
-              <span>Making Charges (मजुरी):</span>
-              <span>₹{totalMakingCharges.toFixed(2)}</span>
-            </div>
-             */}
+            {/* Making Charges line REMOVED from display */}
             <div className="flex justify-between py-2 border-t mt-2 font-bold text-lg">
-              {/* Grand Total STILL INCLUDES making charges */}
               <span>Total (एकूण):</span>
               <span>₹{grandTotal.toFixed(2)}</span>
             </div>
@@ -150,13 +149,11 @@ const InvoicePreview = ({
               <span>- ₹{(advancePayment || 0).toFixed(2)}</span>
             </div>
             <div className="flex justify-between py-2 border-t mt-2 font-bold text-xl text-blue-600">
-              {/* Balance Due STILL INCLUDES making charges */}
               <span>Balance Due (बाकी येणे):</span>
               <span>₹{balanceDue.toFixed(2)}</span>
             </div>
           </div>
         </div>
-        {/* ----------------------------- */}
       </div>
 
       {/* Action Buttons (with print-hide class) */}
@@ -169,7 +166,7 @@ const InvoicePreview = ({
           Cancel
         </button>
         <button
-          onClick={handleConfirmAndPrint}
+          onClick={handleConfirmAndPrint} // This now triggers the delayed print
           disabled={isSaving}
           className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-blue-400"
         >
