@@ -2,11 +2,8 @@
   "version": 2,
   "builds": [
     {
-      "src": "jms-backend/package.json",
-      "use": "@vercel/node",
-      "config": {
-        "includeFiles": ["jms-backend/**"]
-      }
+      "src": "jms-backend/index.js",
+      "use": "@vercel/node"
     }
   ],
   "rewrites": [
