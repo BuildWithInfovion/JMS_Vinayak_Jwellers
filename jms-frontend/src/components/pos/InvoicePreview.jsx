@@ -1,7 +1,9 @@
 // frontend/src/components/pos/InvoicePreview.jsx
 import React from "react";
+import { FaTimes } from "react-icons/fa";
 
-// Remove makingCharges prop, as it's calculated from items
+// This component is now just a PREVIEW.
+// It does NOT print. It just confirms the details.
 const InvoicePreview = ({
   items,
   customerName,
@@ -9,10 +11,9 @@ const InvoicePreview = ({
   customerMobile,
   advancePayment,
   onClose,
-  onConfirm,
+  onConfirm, // This is the 'handleConfirmSale' function from PosPage
   isSaving,
 }) => {
-  // Recalculate totals based on items array which includes per-item making charges
   const itemsSubtotal = items.reduce((total, item) => {
     const itemPrice =
       (item.sellingWeight || 0) * (item.sellingPricePerGram || 0);
@@ -25,82 +26,104 @@ const InvoicePreview = ({
     return total + itemMakingCharge * item.quantity;
   }, 0);
 
-  const grandTotal = itemsSubtotal + totalMakingCharges; // Calculation includes MC
+  const grandTotal = itemsSubtotal + totalMakingCharges;
   const balanceDue = grandTotal - (advancePayment || 0);
 
-  const handleConfirmAndPrint = () => {
+  // This function is called when the "Confirm" button is clicked
+  const handleConfirmClick = () => {
     if (isSaving) return;
-    // Call the confirm handler first
+
+    // Pass all calculated data back to PosPage to be saved
+    // This part is correct and essential.
     onConfirm({
-      items: items, // Items now contain makingChargePerGram
+      items: items,
       totalAmount: grandTotal,
       subtotal: itemsSubtotal,
-      totalMakingCharges: totalMakingCharges, // Pass calculated total
+      totalMakingCharges: totalMakingCharges,
       advancePayment: advancePayment,
       balanceDue: balanceDue,
       customerName: customerName,
       customerAddress: customerAddress,
       customerMobile: customerMobile,
     });
-
-    // --- Add Delay before Print ---
-    setTimeout(() => {
-      window.print();
-    }, 100); // Wait 100ms
-    // ----------------------------
   };
 
   return (
-    <div className="text-gray-800">
+    // Main container for on-screen preview
+    <div
+      id="invoice-container" // This ID is for styling the modal
+      className="max-w-3xl mx-auto text-gray-900 bg-white rounded-lg"
+    >
       <div id="invoice-content-printable">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h2 className="text-2xl font-bold">Vinayak Jewellers, Gangakhed</h2>
-          <p className="text-sm">सोने चांदीचे व्यापारी</p>
-          <p className="text-sm">Prop. Vinayak D. Dishe</p>
-          <p className="text-sm">Mo. 9421462257</p>
+        {/* --- Header --- */}
+        <div className="text-center mb-8 pb-6 border-b-2 border-gray-200">
+          {/* Logo from public folder */}
+          <img src="/VJ.png" alt="Logo" className="h-16 w-auto mx-auto mb-3" />
+          <h2 className="text-xl md:text-2xl font-extrabold text-gray-900">
+            विनायक ज्वेलर्स, गंगाखेड
+          </h2>
+          <p className="text-lg text-gray-500 mt-1">सोने चांदीचे व्यापारी</p>
+          <p className="text-sm text-gray-500 mt-2">
+            {/* --- FIX: Corrected Spelling --- */}
+            Prop. Vinayak D. Didshere | Mo. 9421462257
+          </p>
         </div>
 
-        {/* Customer Details */}
-        <div className="border-t border-b py-2 mb-6 text-sm">
-          <div className="flex justify-between mb-1">
-            <span>
-              <strong>Name (श्री./सौ.):</strong> {customerName || "N/A"}
-            </span>
-            <span>
-              <strong>Date:</strong>{" "}
-              {new Date().toLocaleDateString("en-IN", {
-                day: "2-digit",
-                month: "2-digit",
-                year: "numeric",
-              })}
-            </span>
+        {/* --- Customer Details Grid --- */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 text-sm">
+          {/* Billed To */}
+          <div>
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+              Billed To
+            </h3>
+            <p className="font-medium text-gray-800">{customerName || "N/A"}</p>
+            <p className="text-gray-600">{customerAddress || "N/A"}</p>
+            <p className="text-gray-600">{customerMobile || "N/A"}</p>
           </div>
-          <div className="flex justify-between mb-1">
-            <span>
-              <strong>Mobile:</strong> {customerMobile || "N/A"}
-            </span>
-          </div>
-          <div className="flex">
-            <span>
-              <strong>Address (रा.):</strong> {customerAddress || "N/A"}
-            </span>
+          {/* Invoice Details */}
+          <div className="md:text-right">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+              Invoice Details
+            </h3>
+            <div className="flex justify-between md:justify-end md:gap-4">
+              <span className="text-gray-600">Date:</span>
+              <span className="font-medium text-gray-800">
+                {new Date().toLocaleDateString("en-IN", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "numeric",
+                })}
+              </span>
+            </div>
+            {/* Note: Invoice # will be on the PDF, not this preview */}
           </div>
         </div>
 
-        {/* Items Table */}
-        <table className="w-full mb-6 text-sm">
+        {/* --- Items Table --- */}
+        <table className="w-full mb-8 text-sm border-collapse">
           <thead>
-            <tr className="border-b bg-gray-50">
-              <th className="p-1 text-left font-medium">Item</th>
-              <th className="p-1 text-center font-medium">Purity</th>
-              <th className="p-1 text-right font-medium">Wt(g)</th>
-              <th className="p-1 text-right font-medium">Rate/g</th>
-              <th className="p-1 text-right font-medium">MC/g</th>
-              <th className="p-1 text-right font-medium">Amount</th>
+            <tr className="bg-gray-50">
+              <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Item
+              </th>
+              <th className="p-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Purity
+              </th>
+              <th className="p-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Wt(g)
+              </th>
+              <th className="p-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Rate/g
+              </th>
+              <th className="p-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                MC/g
+              </th>
+              <th className="p-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Amount
+              </th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-gray-200">
             {items.map((item) => {
               const itemWeight = item.sellingWeight || 0;
               const itemPricePerGram = item.sellingPricePerGram || 0;
@@ -111,66 +134,90 @@ const InvoicePreview = ({
               const lineTotal = lineAmount * item.quantity;
 
               return (
-                <tr key={item._id} className="border-b">
-                  <td className="p-1">
-                    {item.name} (Qty:{item.quantity})
+                <tr key={item._id}>
+                  <td className="p-3 whitespace-nowrap">
+                    <span className="font-medium">{item.name}</span>
+                    <span className="text-gray-500">
+                      {" "}
+                      (Qty: {item.quantity})
+                    </span>
                   </td>
-                  <td className="p-1 text-center">
+                  <td className="p-3 text-center">
                     {item.sellingPurity || "N/A"}
                   </td>
-                  <td className="p-1 text-right">{itemWeight.toFixed(2)}</td>
-                  <td className="p-1 text-right">
+                  <td className="p-3 text-right">{itemWeight.toFixed(3)}</td>
+                  <td className="p-3 text-right">
                     ₹{itemPricePerGram.toFixed(2)}
                   </td>
-                  <td className="p-1 text-right">
+                  <td className="p-3 text-right">
                     ₹{itemMakingChargePerGram.toFixed(2)}{" "}
                   </td>
-                  <td className="p-1 text-right">₹{lineTotal.toFixed(2)}</td>
+                  <td className="p-3 text-right font-medium">
+                    ₹{lineTotal.toFixed(2)}
+                  </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
 
-        {/* Totals Section (Making charges line hidden) */}
-        <div className="flex justify-end">
-          <div className="w-1/2">
-            <div className="flex justify-between py-1">
-              <span>Subtotal:</span>
-              <span>₹{itemsSubtotal.toFixed(2)}</span>
+        {/* --- Totals Section --- */}
+        <div className="flex justify-end totals-section">
+          <div className="w-full max-w-sm space-y-2 text-sm">
+            <div className="flex justify-between py-2">
+              <span className="text-gray-600">Subtotal:</span>
+              <span className="font-medium">₹{itemsSubtotal.toFixed(2)}</span>
             </div>
-            {/* Making Charges line REMOVED from display */}
-            <div className="flex justify-between py-2 border-t mt-2 font-bold text-lg">
-              <span>Total (एकूण):</span>
-              <span>₹{grandTotal.toFixed(2)}</span>
+
+            <div className="flex justify-between py-2 border-t-2 border-gray-200">
+              <span className="text-lg font-semibold text-gray-800">
+                Total (एकूण):
+              </span>
+              <span className="text-lg font-semibold text-gray-800">
+                ₹{grandTotal.toFixed(2)}
+              </span>
             </div>
-            <div className="flex justify-between py-1 text-green-600">
-              <span>Advance (नगदी जमा):</span>
-              <span>- ₹{(advancePayment || 0).toFixed(2)}</span>
+
+            <div className="flex justify-between py-2 text-green-600">
+              <span className="font-medium">Advance (नगदी जमा):</span>
+              <span className="font-medium">
+                - ₹{(advancePayment || 0).toFixed(2)}
+              </span>
             </div>
-            <div className="flex justify-between py-2 border-t mt-2 font-bold text-xl text-blue-600">
-              <span>Balance Due (बाकी येणे):</span>
-              <span>₹{balanceDue.toFixed(2)}</span>
+
+            <div className="flex justify-between py-3 border-t-2 border-gray-900 mt-2">
+              <span className="text-xl font-bold text-blue-600">
+                Balance Due (बाकी येणे):
+              </span>
+              <span className="text-xl font-bold text-blue-600">
+                ₹{balanceDue.toFixed(2)}
+              </span>
             </div>
           </div>
         </div>
+
+        {/* --- Footer --- */}
+        <div className="mt-12 pt-6 border-t border-gray-200 text-center text-xs text-gray-500">
+          <p>Thank you for your business!</p>
+        </div>
       </div>
 
-      {/* Action Buttons (with print-hide class) */}
+      {/* --- Action Buttons (Hidden on Print) --- */}
       <div className="mt-8 flex justify-end space-x-3 print-hide">
         <button
           onClick={onClose}
           disabled={isSaving}
-          className="bg-gray-200 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-300 disabled:opacity-50"
+          className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 disabled:opacity-50 transition-colors"
         >
+          <FaTimes />
           Cancel
         </button>
         <button
-          onClick={handleConfirmAndPrint} // This now triggers the delayed print
+          onClick={handleConfirmClick} // Calls the handler that triggers onConfirm
           disabled={isSaving}
-          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-blue-400"
+          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-blue-400 transition-colors"
         >
-          {isSaving ? "Saving..." : "Confirm & Print"}
+          {isSaving ? "Saving..." : "Confirm Sale"}
         </button>
       </div>
     </div>

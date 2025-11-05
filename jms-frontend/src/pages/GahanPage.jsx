@@ -1,8 +1,16 @@
 // frontend/src/pages/GahanPage.jsx
-import React, { useState, useEffect, useMemo } from "react"; // <-- Import useMemo
+import React, { useState, useEffect, useMemo } from "react";
 import Modal from "../components/common/Modal";
 import { addGahan, getGahanRecords, releaseGahan } from "../services/api";
 import GahanReceiptModal from "../components/gahan/GahanReceiptModal";
+import {
+  FiTrendingUp,
+  FiPlus,
+  FiSearch,
+  FiAlertCircle,
+  FiClock,
+  FiCheckCircle,
+} from "react-icons/fi";
 
 const GahanPage = () => {
   const [gahanRecords, setGahanRecords] = useState([]);
@@ -23,11 +31,8 @@ const GahanPage = () => {
     notes: "",
   };
   const [formData, setFormData] = useState(initialFormData);
-
-  // --- NEW: Search State ---
   const [searchCustomer, setSearchCustomer] = useState("");
   const [searchItem, setSearchItem] = useState("");
-  // -------------------------
 
   const fetchGahanRecords = async () => {
     setIsLoading(true);
@@ -45,19 +50,36 @@ const GahanPage = () => {
     fetchGahanRecords();
   }, []);
 
-  // --- NEW: Filter records based on search ---
   const filteredRecords = useMemo(() => {
     return gahanRecords.filter((record) => {
       const customerName = (record.customerName || "").toLowerCase();
       const itemName = (record.itemName || "").toLowerCase();
-
       const customerMatch = customerName.includes(searchCustomer.toLowerCase());
       const itemMatch = itemName.includes(searchItem.toLowerCase());
-
-      return customerMatch && itemMatch; // Must match both
+      return customerMatch && itemMatch;
     });
   }, [gahanRecords, searchCustomer, searchItem]);
-  // ------------------------------------------
+
+  // Calculate stats
+  const stats = useMemo(() => {
+    const activeRecords = filteredRecords.length;
+    const totalAmount = filteredRecords.reduce(
+      (sum, record) => sum + (record.amountGiven || 0),
+      0
+    );
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const overdueCount = filteredRecords.filter((record) => {
+      if (!record.dueDate) return false;
+      const due = new Date(record.dueDate);
+      due.setHours(0, 0, 0, 0);
+      return due < today;
+    }).length;
+
+    return { activeRecords, totalAmount, overdueCount };
+  }, [filteredRecords]);
 
   const handleInputChange = (e) => {
     const { id, value } = e.target;
@@ -82,14 +104,11 @@ const GahanPage = () => {
   };
 
   const handleRelease = async (id) => {
-    if (
-      !window.confirm("Are you sure you want to mark this item as released?")
-    ) {
+    if (!window.confirm("Are you sure you want to mark this item as released?"))
       return;
-    }
     try {
       await releaseGahan(id);
-      fetchGahanRecords(); // Refresh the list
+      fetchGahanRecords();
       alert("Gahan item released successfully!");
     } catch (error) {
       console.error("Failed to release Gahan item:", error);
@@ -138,146 +157,261 @@ const GahanPage = () => {
     return due >= today && due <= sevenDaysFromNow;
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 font-medium">Loading Gahan records...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <>
-      <div className="bg-white shadow rounded-lg p-4">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-2xl font-semibold">Gahan Management</h3>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-amber-50 to-yellow-50 p-6">
+      {/* Header */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center space-x-3">
+            <div className="bg-gradient-to-br from-amber-500 to-yellow-600 p-3 rounded-xl shadow-lg">
+              <FiTrendingUp className="w-7 h-7 text-white" strokeWidth={2.5} />
+            </div>
+            <div>
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-amber-600 to-yellow-600 bg-clip-text text-transparent">
+                Gahan Management
+              </h1>
+              <p className="text-gray-600">Track pledged jewelry items</p>
+            </div>
+          </div>
+
+          {/* Add Button */}
           <button
             onClick={() => setIsAddModalOpen(true)}
-            className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
+            className="group relative overflow-hidden bg-gradient-to-r from-amber-600 to-yellow-600 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 flex items-center space-x-2"
           >
-            + Add New Gahan
+            <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
+            <FiPlus className="w-5 h-5" strokeWidth={2.5} />
+            <span className="font-semibold">Add New Gahan</span>
           </button>
         </div>
 
-        {/* --- NEW Search Inputs --- */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <input
-            type="text"
-            placeholder="Search by Customer Name..."
-            value={searchCustomer}
-            onChange={(e) => setSearchCustomer(e.target.value)}
-            className="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-          />
-          <input
-            type="text"
-            placeholder="Search by Item Name..."
-            value={searchItem}
-            onChange={(e) => setSearchItem(e.target.value)}
-            className="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-          />
-        </div>
-        {/* ------------------------- */}
-
-        {isLoading ? (
-          <p>Loading Gahan records...</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Customer
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Mobile
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Item
-                  </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                    Weight(g)
-                  </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                    Amount Given
-                  </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                    Interest(%)
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Pawn Date
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Due Date
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {/* --- Use filteredRecords --- */}
-                {filteredRecords.length === 0 ? (
-                  <tr>
-                    <td colSpan="9" className="text-center py-10 text-gray-500">
-                      No Gahan records match your search.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredRecords.map((record) => {
-                    const overdue = isOverdue(record.dueDate);
-                    const dueSoon = !overdue && isDueSoon(record.dueDate);
-                    let rowClass = "";
-                    if (overdue) rowClass = "bg-red-100";
-                    else if (dueSoon) rowClass = "bg-yellow-100";
-                    return (
-                      <tr key={record._id} className={rowClass}>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
-                          {record.customerName}
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm">
-                          {record.customerMobile || "N/A"}
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm">
-                          {record.itemName}
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm text-right">
-                          {record.itemWeight.toFixed(2)}
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm text-right">
-                          ₹{record.amountGiven.toFixed(2)}
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm text-right">
-                          {record.interestRate}%
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm">
-                          {formatDate(record.pawnDate)}
-                        </td>
-                        <td
-                          className={`px-4 py-4 whitespace-nowrap text-sm font-medium ${
-                            overdue
-                              ? "text-red-600"
-                              : dueSoon
-                              ? "text-yellow-700"
-                              : ""
-                          }`}
-                        >
-                          {formatDate(record.dueDate)}
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm space-x-2">
-                          <button
-                            onClick={() => handleViewGahan(record)}
-                            className="text-indigo-600 hover:text-indigo-800"
-                          >
-                            View
-                          </button>
-                          <button
-                            onClick={() => handleRelease(record._id)}
-                            className="text-blue-600 hover:text-blue-800 font-medium"
-                          >
-                            Release
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-                {/* --------------------------- */}
-              </tbody>
-            </table>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          <div className="bg-white rounded-2xl shadow-lg p-6 border-2 border-blue-100 hover:border-blue-300 transition-all duration-300 hover:scale-105">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-1">
+                  Active Records
+                </p>
+                <p className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+                  {stats.activeRecords}
+                </p>
+              </div>
+              <div className="bg-gradient-to-br from-blue-500 to-cyan-600 p-4 rounded-xl">
+                <FiCheckCircle
+                  className="w-6 h-6 text-white"
+                  strokeWidth={2.5}
+                />
+              </div>
+            </div>
           </div>
-        )}
+
+          <div className="bg-white rounded-2xl shadow-lg p-6 border-2 border-amber-100 hover:border-amber-300 transition-all duration-300 hover:scale-105">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-1">
+                  Total Amount
+                </p>
+                <p className="text-3xl font-bold bg-gradient-to-r from-amber-600 to-yellow-600 bg-clip-text text-transparent">
+                  ₹{stats.totalAmount.toLocaleString("en-IN")}
+                </p>
+              </div>
+              <div className="bg-gradient-to-br from-amber-500 to-yellow-600 p-4 rounded-xl">
+                <FiTrendingUp
+                  className="w-6 h-6 text-white"
+                  strokeWidth={2.5}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-lg p-6 border-2 border-red-100 hover:border-red-300 transition-all duration-300 hover:scale-105">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-1">
+                  Overdue
+                </p>
+                <p className="text-3xl font-bold bg-gradient-to-r from-red-600 to-orange-600 bg-clip-text text-transparent">
+                  {stats.overdueCount}
+                </p>
+              </div>
+              <div className="bg-gradient-to-br from-red-500 to-orange-600 p-4 rounded-xl">
+                <FiAlertCircle
+                  className="w-6 h-6 text-white"
+                  strokeWidth={2.5}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Search Section */}
+        <div className="bg-white rounded-2xl shadow-lg p-6 border-2 border-gray-100">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                <FiSearch className="w-4 h-4 text-amber-500" />
+                <span>Customer Name</span>
+              </label>
+              <input
+                type="text"
+                placeholder="Search by customer name"
+                value={searchCustomer}
+                onChange={(e) => setSearchCustomer(e.target.value)}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all duration-300"
+              />
+            </div>
+
+            <div>
+              <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                <FiSearch className="w-4 h-4 text-amber-500" />
+                <span>Item Name</span>
+              </label>
+              <input
+                type="text"
+                placeholder="Search by item name"
+                value={searchItem}
+                onChange={(e) => setSearchItem(e.target.value)}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all duration-300"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="bg-white rounded-2xl shadow-xl border-2 border-gray-100 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gradient-to-r from-amber-50 to-yellow-50">
+              <tr>
+                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                  Customer
+                </th>
+                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                  Mobile
+                </th>
+                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                  Item
+                </th>
+                <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">
+                  Weight(g)
+                </th>
+                <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">
+                  Amount
+                </th>
+                <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">
+                  Interest%
+                </th>
+                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                  Pawn Date
+                </th>
+                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                  Due Date
+                </th>
+                <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredRecords.length === 0 ? (
+                <tr>
+                  <td colSpan="9" className="text-center py-12">
+                    <div className="flex flex-col items-center">
+                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-3">
+                        <FiTrendingUp className="w-8 h-8 text-gray-400" />
+                      </div>
+                      <p className="text-gray-500 font-medium">
+                        No Gahan records found
+                      </p>
+                      <p className="text-sm text-gray-400 mt-1">
+                        Try adjusting your search
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filteredRecords.map((record) => {
+                  const overdue = isOverdue(record.dueDate);
+                  const dueSoon = !overdue && isDueSoon(record.dueDate);
+                  let rowClass = "";
+                  if (overdue) rowClass = "bg-red-50 hover:bg-red-100";
+                  else if (dueSoon)
+                    rowClass = "bg-yellow-50 hover:bg-yellow-100";
+                  else rowClass = "hover:bg-amber-50";
+
+                  return (
+                    <tr
+                      key={record._id}
+                      className={`${rowClass} transition-colors duration-200`}
+                    >
+                      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {record.customerName}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {record.customerMobile || "N/A"}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {record.itemName}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-right font-medium text-gray-900">
+                        {record.itemWeight.toFixed(2)}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-right font-bold text-amber-600">
+                        ₹{record.amountGiven.toFixed(2)}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-right text-gray-600">
+                        {record.interestRate}%
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {formatDate(record.pawnDate)}
+                      </td>
+                      <td
+                        className={`px-4 py-4 whitespace-nowrap text-sm font-medium flex items-center space-x-1 ${
+                          overdue
+                            ? "text-red-600"
+                            : dueSoon
+                            ? "text-yellow-700"
+                            : "text-gray-600"
+                        }`}
+                      >
+                        {overdue && <FiAlertCircle className="w-4 h-4" />}
+                        {dueSoon && <FiClock className="w-4 h-4" />}
+                        <span>{formatDate(record.dueDate)}</span>
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-center text-sm space-x-2">
+                        <button
+                          onClick={() => handleViewGahan(record)}
+                          className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-3 py-1.5 rounded-lg hover:from-indigo-600 hover:to-purple-700 transition-all duration-300 hover:scale-105 font-medium shadow-md"
+                        >
+                          View
+                        </button>
+                        <button
+                          onClick={() => handleRelease(record._id)}
+                          className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-3 py-1.5 rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-300 hover:scale-105 font-medium shadow-md"
+                        >
+                          Release
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Add Gahan Modal */}
@@ -286,6 +420,7 @@ const GahanPage = () => {
         onClose={() => setIsAddModalOpen(false)}
         title="Add New Gahan Record"
       >
+        {/* Form code remains the same - just the visual styling will be inherited from Modal */}
         <form onSubmit={handleAddGahan} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -458,7 +593,7 @@ const GahanPage = () => {
             </button>
             <button
               type="submit"
-              className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
+              className="bg-amber-600 text-white px-4 py-2 rounded-md hover:bg-amber-700"
             >
               Save Record
             </button>
@@ -466,7 +601,7 @@ const GahanPage = () => {
         </form>
       </Modal>
 
-      {/* View Gahan Receipt Modal */}
+      {/* View Modal */}
       <Modal
         isOpen={isViewModalOpen}
         onClose={handleCloseViewModal}
@@ -478,7 +613,7 @@ const GahanPage = () => {
           onClose={handleCloseViewModal}
         />
       </Modal>
-    </>
+    </div>
   );
 };
 

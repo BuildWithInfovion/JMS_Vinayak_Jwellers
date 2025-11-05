@@ -1,40 +1,46 @@
 // frontend/src/pages/ReportsPage.jsx
 import React, { useState, useEffect, useMemo } from "react";
-import { getSales } from "../services/api"; // getSales IS used in useEffect
+import { getSales } from "../services/api";
 import Modal from "../components/common/Modal";
 import SaleDetailModal from "../components/reports/SaleDetailModal";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import {
+  FiFileText,
+  FiDownload,
+  FiSearch,
+  FiCalendar,
+  FiDollarSign,
+  FiShoppingBag,
+} from "react-icons/fi";
 
 const ReportsPage = () => {
-  const [sales, setSales] = useState([]); // setSales IS used in useEffect
-  const [isLoading, setIsLoading] = useState(true); // setIsLoading IS used in useEffect
+  const [sales, setSales] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchInvoice, setSearchInvoice] = useState("");
   const [searchCustomer, setSearchCustomer] = useState("");
-  const [selectedSale, setSelectedSale] = useState(null); // setSelectedSale IS used in handleViewSale/handleCloseModal
-  const [isModalOpen, setIsModalOpen] = useState(false); // setIsModalOpen IS used in handleViewSale/handleCloseModal
+  const [selectedSale, setSelectedSale] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
   useEffect(() => {
     const fetchSales = async () => {
-      setIsLoading(true); // Use setIsLoading
+      setIsLoading(true);
       try {
-        const response = await getSales(); // Use getSales
-        setSales(response.data); // Use setSales
+        const response = await getSales();
+        setSales(response.data);
       } catch (error) {
         console.error("Failed to fetch sales:", error);
       } finally {
-        setIsLoading(false); // Use setIsLoading
+        setIsLoading(false);
       }
     };
     fetchSales();
-  }, []); // Run only once on mount
+  }, []);
 
-  // --- ADDED Missing Dependencies ---
   const filteredSales = useMemo(() => {
     return sales.filter((sale) => {
-      // 'sale' IS used here
       const saleDate = new Date(sale.createdAt);
       const customerName = (sale.customerName || "").toLowerCase();
       const invoiceNumber = (sale.invoiceNumber || "").toString();
@@ -56,11 +62,23 @@ const ReportsPage = () => {
 
       return dateMatch && invoiceMatch && customerMatch;
     });
-  }, [sales, searchInvoice, searchCustomer, startDate, endDate]); // Added ALL dependencies
-  // ------------------------------------
+  }, [sales, searchInvoice, searchCustomer, startDate, endDate]);
+
+  // Calculate stats
+  const stats = useMemo(() => {
+    const totalRevenue = filteredSales.reduce(
+      (sum, sale) => sum + (sale.totalAmount || 0),
+      0
+    );
+    const totalBalance = filteredSales.reduce(
+      (sum, sale) => sum + (sale.balanceDue || 0),
+      0
+    );
+    const totalSales = filteredSales.length;
+    return { totalRevenue, totalBalance, totalSales };
+  }, [filteredSales]);
 
   const formatDate = (dateString) => {
-    // 'dateString' IS used here
     if (!dateString) return "N/A";
     return new Date(dateString).toLocaleString("en-IN", {
       day: "2-digit",
@@ -72,20 +90,18 @@ const ReportsPage = () => {
   };
 
   const handleViewSale = (sale) => {
-    // 'sale' IS used here
-    setSelectedSale(sale); // Use setSelectedSale
-    setIsModalOpen(true); // Use setIsModalOpen
+    setSelectedSale(sale);
+    setIsModalOpen(true);
   };
 
   const handleCloseModal = () => {
-    setIsModalOpen(false); // Use setIsModalOpen
-    setSelectedSale(null); // Use setSelectedSale
+    setIsModalOpen(false);
+    setSelectedSale(null);
   };
 
   const generatePDF = () => {
-    // ... (PDF generation code remains the same as previous correct version) ...
     if (filteredSales.length === 0) {
-      alert("No sales data...");
+      alert("No sales data to export...");
       return;
     }
     try {
@@ -100,6 +116,7 @@ const ReportsPage = () => {
         "Balance Due",
       ];
       const tableRows = [];
+
       doc.setFontSize(18);
       doc.text("Sales Report", 14, 22);
       doc.setFontSize(11);
@@ -109,6 +126,7 @@ const ReportsPage = () => {
           ? `From: ${startDate || "Start"} To: ${endDate || "End"}`
           : "All Time";
       doc.text(dateRangeText, 14, 30);
+
       filteredSales.forEach((sale) => {
         const itemNames = sale.items.map((item) => item.name).join(", ");
         const totalQty = sale.items.reduce(
@@ -126,6 +144,7 @@ const ReportsPage = () => {
         ];
         tableRows.push(saleData);
       });
+
       autoTable(doc, {
         head: [tableColumn],
         body: tableRows,
@@ -135,23 +154,21 @@ const ReportsPage = () => {
         styles: { fontSize: 8 },
         columnStyles: { 3: { cellWidth: "auto" } },
       });
+
       const finalY = doc.lastAutoTable.finalY || 35;
       doc.setFontSize(10);
-      const totalRevenue = filteredSales.reduce(
-        (sum, sale) => sum + (sale.totalAmount || 0),
-        0
-      );
-      const totalBalance = filteredSales.reduce(
-        (sum, sale) => sum + (sale.balanceDue || 0),
-        0
-      );
-      doc.text(`Total Sales Count: ${filteredSales.length}`, 14, finalY + 10);
-      doc.text(`Total Revenue: Rs ${totalRevenue.toFixed(2)}`, 14, finalY + 15);
+      doc.text(`Total Sales Count: ${stats.totalSales}`, 14, finalY + 10);
       doc.text(
-        `Total Balance Due: Rs ${totalBalance.toFixed(2)}`,
+        `Total Revenue: Rs ${stats.totalRevenue.toFixed(2)}`,
+        14,
+        finalY + 15
+      );
+      doc.text(
+        `Total Balance Due: Rs ${stats.totalBalance.toFixed(2)}`,
         14,
         finalY + 20
       );
+
       const pdfBlob = doc.output("blob");
       const url = URL.createObjectURL(pdfBlob);
       const link = document.createElement("a");
@@ -168,182 +185,252 @@ const ReportsPage = () => {
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-green-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 font-medium">Loading reports...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <>
-      <div className="bg-white shadow rounded-lg p-4">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-2xl font-semibold">Sales Reports</h3>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-green-50 to-emerald-50 p-6">
+      {/* Header */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center space-x-3">
+            <div className="bg-gradient-to-br from-green-500 to-emerald-600 p-3 rounded-xl shadow-lg">
+              <FiFileText className="w-7 h-7 text-white" strokeWidth={2.5} />
+            </div>
+            <div>
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                Sales Reports
+              </h1>
+              <p className="text-gray-600">
+                View and analyze sales transactions
+              </p>
+            </div>
+          </div>
+
+          {/* Download PDF Button */}
           <button
             onClick={generatePDF}
-            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400"
-            disabled={isLoading || filteredSales.length === 0}
+            disabled={filteredSales.length === 0}
+            className="group relative overflow-hidden bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
           >
-            Download PDF
+            <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
+            <FiDownload className="w-5 h-5" strokeWidth={2.5} />
+            <span className="font-semibold">Download PDF</span>
           </button>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-          {/* Search Inputs */}
-          <input
-            type="text"
-            placeholder="Search by Invoice #"
-            value={searchInvoice}
-            onChange={(e) => setSearchInvoice(e.target.value)}
-            className="border border-gray-300 rounded-md py-2 px-3"
-          />
-          <input
-            type="text"
-            placeholder="Search by Customer Name"
-            value={searchCustomer}
-            onChange={(e) => setSearchCustomer(e.target.value)}
-            className="border border-gray-300 rounded-md py-2 px-3"
-          />
-          {/* Date Pickers */}
-          <div>
-            {" "}
-            <label
-              htmlFor="startDate"
-              className="block text-sm font-medium text-gray-500"
-            >
-              Start Date
-            </label>{" "}
-            <input
-              type="date"
-              id="startDate"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="border border-gray-300 rounded-md py-2 px-3 w-full"
-            />{" "}
+
+        {/* Stats Cards - Only 2 Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <div className="bg-white rounded-2xl shadow-lg p-6 border-2 border-blue-100 hover:border-blue-300 transition-all duration-300 hover:scale-105">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-1">
+                  Total Sales
+                </p>
+                <p className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+                  {stats.totalSales}
+                </p>
+              </div>
+              <div className="bg-gradient-to-br from-blue-500 to-cyan-600 p-4 rounded-xl">
+                <FiShoppingBag
+                  className="w-6 h-6 text-white"
+                  strokeWidth={2.5}
+                />
+              </div>
+            </div>
           </div>
-          <div>
-            {" "}
-            <label
-              htmlFor="endDate"
-              className="block text-sm font-medium text-gray-500"
-            >
-              End Date
-            </label>{" "}
-            <input
-              type="date"
-              id="endDate"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="border border-gray-300 rounded-md py-2 px-3 w-full"
-            />{" "}
+
+          <div className="bg-white rounded-2xl shadow-lg p-6 border-2 border-green-100 hover:border-green-300 transition-all duration-300 hover:scale-105">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-1">
+                  Total Revenue
+                </p>
+                <p className="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                  ₹{stats.totalRevenue.toLocaleString("en-IN")}
+                </p>
+              </div>
+              <div className="bg-gradient-to-br from-green-500 to-emerald-600 p-4 rounded-xl">
+                <FiDollarSign
+                  className="w-6 h-6 text-white"
+                  strokeWidth={2.5}
+                />
+              </div>
+            </div>
           </div>
         </div>
 
-        {isLoading ? (
-          <p>Loading reports...</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                {/* Table Headers */}
-                <tr>
-                  {" "}
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    {" "}
-                    Invoice #{" "}
-                  </th>{" "}
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    {" "}
-                    Date{" "}
-                  </th>{" "}
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    {" "}
-                    Customer{" "}
-                  </th>{" "}
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    {" "}
-                    Item Names{" "}
-                  </th>{" "}
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                    {" "}
-                    Qty{" "}
-                  </th>{" "}
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                    {" "}
-                    Total{" "}
-                  </th>{" "}
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                    {" "}
-                    Balance Due{" "}
-                  </th>{" "}
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    {" "}
-                    Actions{" "}
-                  </th>{" "}
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredSales.length === 0 ? (
-                  <tr>
-                    {" "}
-                    <td colSpan="8" className="text-center py-10 text-gray-500">
-                      {" "}
-                      No sales match your filters.{" "}
-                    </td>{" "}
-                  </tr>
-                ) : (
-                  // Use filteredSales here
-                  filteredSales.map((sale) => {
-                    // 'sale' IS used here
-                    const itemNames = sale.items
-                      .map((item) => item.name)
-                      .join(", ");
-                    const totalQty = sale.items.reduce(
-                      (sum, item) => sum + item.quantity,
-                      0
-                    );
-                    return (
-                      <tr key={sale._id}>
-                        {/* Table Data */}
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          {" "}
-                          {sale.invoiceNumber}{" "}
-                        </td>{" "}
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          {" "}
-                          {formatDate(sale.createdAt)}{" "}
-                        </td>{" "}
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          {" "}
-                          {sale.customerName || "N/A"}{" "}
-                        </td>{" "}
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          {" "}
-                          {itemNames}{" "}
-                        </td>{" "}
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
-                          {" "}
-                          {totalQty}{" "}
-                        </td>{" "}
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
-                          {" "}
-                          ₹{(sale.totalAmount || 0).toFixed(2)}{" "}
-                        </td>{" "}
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-blue-600">
-                          {" "}
-                          ₹{(sale.balanceDue || 0).toFixed(2)}{" "}
-                        </td>{" "}
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          {" "}
-                          <button
-                            onClick={() => handleViewSale(sale)}
-                            className="text-indigo-600 hover:text-indigo-900"
-                          >
-                            {" "}
-                            View{" "}
-                          </button>{" "}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+        {/* Filter Section */}
+        <div className="bg-white rounded-2xl shadow-lg p-6 border-2 border-gray-100">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* Invoice Search */}
+            <div>
+              <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                <FiSearch className="w-4 h-4 text-green-500" />
+                <span>Invoice Number</span>
+              </label>
+              <input
+                type="text"
+                placeholder="Search by invoice #"
+                value={searchInvoice}
+                onChange={(e) => setSearchInvoice(e.target.value)}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-all duration-300"
+              />
+            </div>
+
+            {/* Customer Search */}
+            <div>
+              <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                <FiSearch className="w-4 h-4 text-green-500" />
+                <span>Customer Name</span>
+              </label>
+              <input
+                type="text"
+                placeholder="Search by name"
+                value={searchCustomer}
+                onChange={(e) => setSearchCustomer(e.target.value)}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-all duration-300"
+              />
+            </div>
+
+            {/* Start Date */}
+            <div>
+              <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                <FiCalendar className="w-4 h-4 text-green-500" />
+                <span>Start Date</span>
+              </label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-all duration-300"
+              />
+            </div>
+
+            {/* End Date */}
+            <div>
+              <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                <FiCalendar className="w-4 h-4 text-green-500" />
+                <span>End Date</span>
+              </label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-all duration-300"
+              />
+            </div>
           </div>
-        )}
+        </div>
+      </div>
+
+      {/* Sales Table */}
+      <div className="bg-white rounded-2xl shadow-xl border-2 border-gray-100 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gradient-to-r from-green-50 to-emerald-50">
+              <tr>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                  Invoice #
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                  Date
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                  Customer
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                  Item Names
+                </th>
+                <th className="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">
+                  Qty
+                </th>
+                <th className="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">
+                  Total
+                </th>
+                <th className="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">
+                  Balance
+                </th>
+                <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredSales.length === 0 ? (
+                <tr>
+                  <td colSpan="8" className="text-center py-12">
+                    <div className="flex flex-col items-center">
+                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-3">
+                        <FiFileText className="w-8 h-8 text-gray-400" />
+                      </div>
+                      <p className="text-gray-500 font-medium">
+                        No sales match your filters
+                      </p>
+                      <p className="text-sm text-gray-400 mt-1">
+                        Try adjusting your search criteria
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filteredSales.map((sale) => {
+                  const itemNames = sale.items
+                    .map((item) => item.name)
+                    .join(", ");
+                  const totalQty = sale.items.reduce(
+                    (sum, item) => sum + item.quantity,
+                    0
+                  );
+                  return (
+                    <tr
+                      key={sale._id}
+                      className="hover:bg-green-50 transition-colors duration-200"
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
+                        #{sale.invoiceNumber}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {formatDate(sale.createdAt)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {sale.customerName || "N/A"}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-600 max-w-xs truncate">
+                        {itemNames}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-gray-900">
+                        {totalQty}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-green-600">
+                        ₹{(sale.totalAmount || 0).toLocaleString("en-IN")}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-orange-600">
+                        ₹{(sale.balanceDue || 0).toLocaleString("en-IN")}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center text-sm">
+                        <button
+                          onClick={() => handleViewSale(sale)}
+                          className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-4 py-2 rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-300 hover:scale-105 font-medium shadow-md hover:shadow-lg"
+                        >
+                          View
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Modal */}
@@ -355,7 +442,7 @@ const ReportsPage = () => {
       >
         <SaleDetailModal sale={selectedSale} onClose={handleCloseModal} />
       </Modal>
-    </>
+    </div>
   );
 };
 

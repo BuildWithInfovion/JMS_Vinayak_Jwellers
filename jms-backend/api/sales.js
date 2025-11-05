@@ -4,8 +4,8 @@ const router = express.Router();
 const mongoose = require("mongoose");
 const Product = require("../models/Product");
 const Sale = require("../models/Sale");
-const { getNextSequence } = require("../models/Counter"); // <-- Import the counter function
-const authMiddleware = require("../middleware/authMiddleware"); // Import auth middleware
+const { getNextSequence } = require("../models/Counter");
+const authMiddleware = require("../middleware/authMiddleware");
 
 // Apply auth middleware to all sales routes
 router.use(authMiddleware);
@@ -21,33 +21,25 @@ router.get("/", async (req, res) => {
   }
 });
 
-// GET /api/sales/all - (If you have this route, keep it for reports)
-// Make sure it's protected if needed, or remove if not used separately
-// router.get("/all", async (req, res) => { ... });
-
 // POST /api/sales - Create a new sale and deduct stock (Protected)
 router.post("/", async (req, res) => {
-  // --- Destructure customerMobile ---
   const {
     items,
     totalAmount,
     subtotal,
-    makingCharges,
+    totalMakingCharges,
     advancePayment,
     balanceDue,
     customerName,
     customerAddress,
-    customerMobile, // <-- Added mobile
+    customerMobile,
   } = req.body;
-  // ---------------------------------
 
-  // --- Add Mobile to Validation ---
   if (!items || items.length === 0 || !totalAmount || !customerMobile) {
     return res
       .status(400)
       .json({ message: "Invalid sale data. Customer mobile is required." });
   }
-  // --------------------------------
 
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -57,7 +49,11 @@ router.post("/", async (req, res) => {
 
     const soldItems = [];
     for (const item of items) {
-      const product = await Product.findById(item._id).session(session);
+      // --- THIS IS THE FIX ---
+      // It now correctly reads item.productId from the frontend payload
+      const product = await Product.findById(item.productId).session(session);
+      // --- END OF FIX ---
+
       if (!product) {
         throw new Error(`Product not found: ${item.name}`);
       }
@@ -68,6 +64,7 @@ router.post("/", async (req, res) => {
       }
       product.stock -= item.quantity;
       await product.save({ session });
+
       soldItems.push({
         productId: product._id,
         name: product.name,
@@ -75,25 +72,27 @@ router.post("/", async (req, res) => {
         sellingWeight: item.sellingWeight,
         sellingPricePerGram: item.sellingPricePerGram,
         sellingPurity: item.sellingPurity,
+        makingChargePerGram: item.makingChargePerGram, // This is now correct
       });
     }
 
-    // --- Add mobile to the new Sale document ---
     const newSale = new Sale({
       invoiceNumber: nextInvoiceNumber,
       customerName,
       customerAddress,
-      customerMobile, // <-- Save mobile
-      items: soldItems,
+      customerMobile,
+      items: soldItems, // This array now has the correct MC/g
       subtotal,
-      makingCharges,
+      totalMakingCharges: totalMakingCharges, // This is also correct
       totalAmount,
       advancePayment,
       balanceDue,
     });
-    // ------------------------------------------
 
     await newSale.save({ session });
+
+    // Automatic debt logic is removed, as requested.
+
     await session.commitTransaction();
     res.status(201).json(newSale);
   } catch (error) {

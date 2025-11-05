@@ -1,29 +1,149 @@
 // frontend/src/pages/DashboardPage.jsx
 import React, { useState, useEffect, useMemo } from "react";
 import { getSales, getProducts } from "../services/api";
+import {
+  FiDollarSign,
+  FiShoppingBag,
+  FiTrendingUp,
+  FiCalendar,
+  FiAlertTriangle,
+} from "react-icons/fi";
 
-// StatCard component remains the same
-const StatCard = ({ title, value, isCurrency = false }) => {
+// Modern StatCard with Glassmorphism
+const StatCard = ({
+  title,
+  value,
+  isCurrency = false,
+  icon,
+  gradient,
+  iconBg,
+}) => {
   return (
-    <div className="bg-white shadow rounded-lg p-6">
-      <h4 className="text-sm font-medium text-gray-500 uppercase">{title}</h4>
-      <p className="mt-1 text-3xl font-semibold text-gray-900">
-        {isCurrency ? `₹${value.toFixed(2)}` : value}
-      </p>
+    <div className="group relative overflow-hidden bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 hover:scale-105">
+      {/* Gradient Background Overlay */}
+      <div
+        className={`absolute inset-0 ${gradient} opacity-0 group-hover:opacity-10 transition-opacity duration-500`}
+      ></div>
+
+      {/* Glass Effect Border */}
+      <div className="absolute inset-0 rounded-2xl border-2 border-transparent group-hover:border-white/30 transition-colors duration-500"></div>
+
+      {/* Content */}
+      <div className="relative p-6">
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex-1">
+            <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-2">
+              {title}
+            </p>
+            <p className="text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+              {isCurrency
+                ? `₹${value.toLocaleString("en-IN", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}`
+                : value.toLocaleString()}
+            </p>
+          </div>
+
+          {/* Animated Icon */}
+          <div
+            className={`${iconBg} p-4 rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-500`}
+          >
+            {React.createElement(icon, {
+              className: "w-6 h-6 text-white",
+              strokeWidth: 2.5,
+            })}
+          </div>
+        </div>
+
+        {/* Decorative Line */}
+        <div
+          className={`h-1 w-0 group-hover:w-full ${gradient} rounded-full transition-all duration-700`}
+        ></div>
+      </div>
+    </div>
+  );
+};
+
+// Alert Card Component
+const AlertCard = ({ items }) => {
+  return (
+    <div className="relative overflow-hidden bg-gradient-to-br from-red-50 to-orange-50 rounded-2xl shadow-lg border-2 border-red-200/50">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-red-500 to-orange-500 px-6 py-4">
+        <div className="flex items-center space-x-3">
+          <div className="p-2 bg-white/20 backdrop-blur-lg rounded-lg">
+            <FiAlertTriangle className="w-6 h-6 text-white" strokeWidth={2.5} />
+          </div>
+          <div>
+            <h4 className="text-lg font-bold text-white">Out of Stock Alert</h4>
+            <p className="text-sm text-white/80">
+              {items.length} {items.length === 1 ? "item needs" : "items need"}{" "}
+              restocking
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="p-6">
+        {items.length > 0 ? (
+          <div className="max-h-60 overflow-y-auto space-y-2 scrollbar-thin scrollbar-thumb-red-300 scrollbar-track-red-50">
+            {items.map((item) => (
+              <div
+                key={item._id}
+                className="flex items-center justify-between p-3 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow duration-300"
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                  <div>
+                    <p className="font-medium text-gray-900">{item.name}</p>
+                    <p className="text-sm text-gray-500">{item.category}</p>
+                  </div>
+                </div>
+                <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold">
+                  Stock: 0
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8">
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+              <svg
+                className="w-8 h-8 text-green-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
+            </div>
+            <p className="text-gray-600 font-medium">All items are in stock!</p>
+            <p className="text-sm text-gray-500 mt-1">
+              Inventory levels are healthy
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
 
 const DashboardPage = () => {
   const [sales, setSales] = useState([]);
-  const [products, setProducts] = useState([]); // <-- State for products
+  const [products, setProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        // Fetch both sales and products
         const [salesResponse, productsResponse] = await Promise.all([
           getSales(),
           getProducts(),
@@ -39,19 +159,16 @@ const DashboardPage = () => {
     fetchData();
   }, []);
 
-  // --- UPDATED: Calculate stats ---
   const stats = useMemo(() => {
     const now = new Date();
-    const todayStr = now.toDateString(); // For daily comparison
+    const todayStr = now.toDateString();
 
-    // Get start of the current week (assuming Sunday is the first day)
     const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay()); // Go back to Sunday
-    startOfWeek.setHours(0, 0, 0, 0); // Start of the day
+    startOfWeek.setDate(now.getDate() - now.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
 
-    // Get start of the current month
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    startOfMonth.setHours(0, 0, 0, 0); // Start of the day
+    startOfMonth.setHours(0, 0, 0, 0);
 
     let revenueToday = 0;
     let salesCountToday = 0;
@@ -62,88 +179,96 @@ const DashboardPage = () => {
     sales.forEach((sale) => {
       const saleDate = new Date(sale.createdAt);
       const saleAmount = sale.totalAmount || 0;
-      totalRevenue += saleAmount; // Add to total revenue
+      totalRevenue += saleAmount;
 
-      // Today's stats
       if (saleDate.toDateString() === todayStr) {
         revenueToday += saleAmount;
         salesCountToday++;
       }
 
-      // Weekly stats
       if (saleDate >= startOfWeek) {
         salesCountWeek++;
       }
 
-      // Monthly stats
       if (saleDate >= startOfMonth) {
         salesCountMonth++;
       }
     });
 
-    const totalSalesCount = sales.length; // Keep total count
+    const totalSalesCount = sales.length;
 
     return {
       revenueToday,
       salesCountToday,
-      salesCountWeek, // New stat
-      salesCountMonth, // New stat
+      salesCountWeek,
+      salesCountMonth,
       totalRevenue,
-      totalSalesCount, // Keep this for potential future use
+      totalSalesCount,
     };
   }, [sales]);
-  // ------------------------------------
 
-  // --- Find out-of-stock items (unchanged) ---
   const outOfStockItems = useMemo(() => {
     return products.filter((product) => product.stock <= 0);
   }, [products]);
-  // ------------------------------------
 
   if (isLoading) {
-    return <p>Loading dashboard...</p>;
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 font-medium">Loading dashboard...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div>
-      <h3 className="text-2xl font-semibold mb-4">Dashboard</h3>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-teal-50 p-6">
+      {/* Page Header */}
+      <div className="mb-8">
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-teal-600 to-blue-600 bg-clip-text text-transparent mb-2">
+          Dashboard
+        </h1>
+        <p className="text-gray-600">
+          Welcome back! Here's what's happening with your business today.
+        </p>
+      </div>
 
-      {/* --- UPDATED Stat Cards --- */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <StatCard
           title="Revenue Today"
           value={stats.revenueToday}
           isCurrency={true}
+          icon={FiDollarSign}
+          gradient="bg-gradient-to-br from-green-400 to-emerald-500"
+          iconBg="bg-gradient-to-br from-green-500 to-emerald-600"
         />
-        <StatCard title="Sales Today" value={stats.salesCountToday} />
-        <StatCard title="Sales This Week" value={stats.salesCountWeek} />{" "}
-        {/* New/Replaced */}
-        <StatCard title="Sales This Month" value={stats.salesCountMonth} />{" "}
-        {/* New */}
-        {/* <StatCard title="Total Revenue" value={stats.totalRevenue} isCurrency={true} /> */}
+        <StatCard
+          title="Sales Today"
+          value={stats.salesCountToday}
+          icon={FiShoppingBag}
+          gradient="bg-gradient-to-br from-blue-400 to-cyan-500"
+          iconBg="bg-gradient-to-br from-blue-500 to-cyan-600"
+        />
+        <StatCard
+          title="Sales This Week"
+          value={stats.salesCountWeek}
+          icon={FiTrendingUp}
+          gradient="bg-gradient-to-br from-purple-400 to-pink-500"
+          iconBg="bg-gradient-to-br from-purple-500 to-pink-600"
+        />
+        <StatCard
+          title="Sales This Month"
+          value={stats.salesCountMonth}
+          icon={FiCalendar}
+          gradient="bg-gradient-to-br from-orange-400 to-red-500"
+          iconBg="bg-gradient-to-br from-orange-500 to-red-600"
+        />
       </div>
-      {/* --------------------------- */}
 
-      {/* --- Out of Stock Section (unchanged) --- */}
-      <div className="bg-white shadow rounded-lg p-6">
-        <h4 className="text-lg font-semibold mb-3 text-red-600">
-          Out of Stock Items ({outOfStockItems.length})
-        </h4>
-        {outOfStockItems.length > 0 ? (
-          <ul className="list-disc pl-5 space-y-1 max-h-40 overflow-y-auto">
-            {outOfStockItems.map((item) => (
-              <li key={item._id} className="text-sm">
-                {item.name} ({item.category})
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-sm text-gray-500">
-            All items are currently in stock.
-          </p>
-        )}
-      </div>
-      {/* ------------------------------- */}
+      {/* Out of Stock Alert */}
+      <AlertCard items={outOfStockItems} />
     </div>
   );
 };

@@ -5,6 +5,13 @@ import Cart from "../components/pos/Cart";
 import Modal from "../components/common/Modal";
 import InvoicePreview from "../components/pos/InvoicePreview";
 import { getProducts, createSale } from "../services/api";
+import {
+  FiShoppingCart,
+  FiUser,
+  FiPhone,
+  FiMapPin,
+  FiDollarSign,
+} from "react-icons/fi";
 
 const PosPage = () => {
   const [cartItems, setCartItems] = useState([]);
@@ -14,8 +21,7 @@ const PosPage = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [customerAddress, setCustomerAddress] = useState("");
-  const [customerMobile, setCustomerMobile] = useState(""); // Mobile state
-  // Making charges state removed
+  const [customerMobile, setCustomerMobile] = useState("");
   const [advancePayment, setAdvancePayment] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -67,7 +73,6 @@ const PosPage = () => {
             : item
         );
       }
-      // Add item with makingChargePerGram state
       return [
         ...prevItems,
         {
@@ -76,7 +81,7 @@ const PosPage = () => {
           sellingWeight: productToAdd.weight || 0,
           sellingPricePerGram: productToAdd.pricePerGram || 0,
           sellingPurity: productToAdd.purity || "",
-          makingChargePerGram: 0, // Initialize making charge per gram
+          makingChargePerGram: 0,
         },
       ];
     });
@@ -140,7 +145,6 @@ const PosPage = () => {
     );
   };
 
-  // Handler for updating per-item making charge
   const handleUpdateCartMakingCharge = (productId, charge) => {
     setCartItems((prevItems) =>
       prevItems.map((item) =>
@@ -169,7 +173,6 @@ const PosPage = () => {
       if (isPricedByGram && (!item.sellingWeight || item.sellingWeight <= 0)) {
         return true;
       }
-      // Making charge per gram is optional, no check needed here
       return false;
     });
     if (invalidItem) {
@@ -181,45 +184,42 @@ const PosPage = () => {
     setIsInvoiceModalOpen(true);
   };
 
-  const handleConfirmSale = async (saleData) => {
+  const handleConfirmSale = async (saleDataFromModal) => {
+    if (isSaving) return;
+
     setIsSaving(true);
     try {
-      // Calculate totalMakingCharges from cartItems before sending
-      const totalMakingCharges = cartItems.reduce((total, item) => {
-        const itemMakingCharge =
-          (item.sellingWeight || 0) * (item.makingChargePerGram || 0);
-        return total + itemMakingCharge * item.quantity;
-      }, 0);
-
       const salePayload = {
-        ...saleData, // Contains subtotal, totalAmount, balanceDue
-        customerName: customerName,
-        customerAddress: customerAddress,
-        customerMobile: customerMobile,
-        // makingCharges: makingCharges, // Removed old single charge
-        totalMakingCharges: totalMakingCharges, // Send calculated total
-        advancePayment: advancePayment,
-        items: cartItems.map((item) => ({
-          _id: item._id,
+        items: saleDataFromModal.items.map((item) => ({
+          productId: item._id,
           name: item.name,
           quantity: item.quantity,
           sellingWeight: item.sellingWeight,
           sellingPricePerGram: item.sellingPricePerGram,
           sellingPurity: item.sellingPurity,
-          makingChargePerGram: item.makingChargePerGram || 0, // Send per-item charge
+          makingChargePerGram: item.makingChargePerGram || 0,
         })),
+        subtotal: saleDataFromModal.subtotal,
+        totalMakingCharges: saleDataFromModal.totalMakingCharges,
+        totalAmount: saleDataFromModal.totalAmount,
+        advancePayment: saleDataFromModal.advancePayment,
+        balanceDue: saleDataFromModal.balanceDue,
+        customerName: saleDataFromModal.customerName,
+        customerAddress: saleDataFromModal.customerAddress,
+        customerMobile: saleDataFromModal.customerMobile,
       };
+
       await createSale(salePayload);
-      alert("Sale confirmed successfully!");
+
+      alert("Sale Confirmed & Saved!");
+
       setCartItems([]);
       setCustomerName("");
       setCustomerAddress("");
       setCustomerMobile("");
-      // setMakingCharges(0); // Removed old charge reset
       setAdvancePayment(0);
       setIsInvoiceModalOpen(false);
       fetchProductsForPOS();
-      window.print();
     } catch (error) {
       console.error("Failed to create sale:", error);
       const errorMessage =
@@ -230,101 +230,129 @@ const PosPage = () => {
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 font-medium">Loading POS...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <>
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-6 h-full md:h-[calc(100vh-10rem)]">
-        {/* Product Selector */}
-        <div className="md:col-span-2 h-full">
-          {isLoading ? (
-            <p>Loading products...</p>
-          ) : (
-            <ProductSelector
-              products={filteredProducts}
-              onAddToCart={handleAddToCart}
-              searchTerm={searchTerm}
-              onSearchChange={(e) => setSearchTerm(e.target.value)}
-            />
-          )}
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-cyan-50 p-6">
+      {/* Header */}
+      <div className="mb-6">
+        <div className="flex items-center space-x-3 mb-2">
+          <div className="bg-gradient-to-br from-blue-500 to-cyan-600 p-3 rounded-xl shadow-lg">
+            <FiShoppingCart className="w-7 h-7 text-white" strokeWidth={2.5} />
+          </div>
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+            Point of Sale
+          </h1>
+        </div>
+        <p className="text-gray-600 ml-16">
+          Create invoices and process sales transactions
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        {/* Product Selector - Left Side */}
+        <div className="lg:col-span-2">
+          <ProductSelector
+            products={filteredProducts}
+            onAddToCart={handleAddToCart}
+            searchTerm={searchTerm}
+            onSearchChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
 
-        {/* Billing Section */}
-        <div className="md:col-span-3 h-full overflow-y-auto">
-          {/* Customer & Charges Form */}
-          <div className="bg-white shadow rounded-lg p-4 mb-4">
-            <h4 className="text-lg font-semibold mb-4">Customer & Charges</h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label
-                  htmlFor="customerName"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Customer Name
-                </label>
-                <input
-                  type="text"
-                  id="customerName"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3"
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="customerMobile"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Mobile Number *
-                </label>
-                <input
-                  type="tel"
-                  id="customerMobile"
-                  value={customerMobile}
-                  onChange={(e) => setCustomerMobile(e.target.value)}
-                  required
-                  className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3"
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="customerAddress"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Address
-                </label>
-                <input
-                  type="text"
-                  id="customerAddress"
-                  value={customerAddress}
-                  onChange={(e) => setCustomerAddress(e.target.value)}
-                  className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3"
-                />
-              </div>
-              {/* Making Charges Input Removed */}
-              <div className="md:col-start-2">
-                {" "}
-                {/* Align Advance under Mobile */}
-                <label
-                  htmlFor="advancePayment"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Advance / Old Gold
-                </label>
-                <input
-                  type="number"
-                  id="advancePayment"
-                  value={advancePayment}
-                  onChange={(e) =>
-                    setAdvancePayment(parseFloat(e.target.value) || 0)
-                  }
-                  className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3"
-                />
+        {/* Billing Section - Right Side */}
+        <div className="lg:col-span-3 space-y-6">
+          {/* Customer Information Card */}
+          <div className="bg-white rounded-2xl shadow-xl border-2 border-blue-100 overflow-hidden">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-blue-500 to-cyan-500 px-6 py-4">
+              <h4 className="text-lg font-bold text-white flex items-center space-x-2">
+                <FiUser className="w-5 h-5" />
+                <span>Customer Information</span>
+              </h4>
+            </div>
+
+            {/* Form Fields */}
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Customer Name */}
+                <div>
+                  <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                    <FiUser className="w-4 h-4 text-blue-500" />
+                    <span>Customer Name</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    placeholder="Enter customer name"
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-300"
+                  />
+                </div>
+
+                {/* Mobile Number */}
+                <div>
+                  <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                    <FiPhone className="w-4 h-4 text-blue-500" />
+                    <span>Mobile Number *</span>
+                  </label>
+                  <input
+                    type="tel"
+                    value={customerMobile}
+                    onChange={(e) => setCustomerMobile(e.target.value)}
+                    placeholder="Enter mobile number"
+                    required
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-300"
+                  />
+                </div>
+
+                {/* Address */}
+                <div>
+                  <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                    <FiMapPin className="w-4 h-4 text-blue-500" />
+                    <span>Address</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={customerAddress}
+                    onChange={(e) => setCustomerAddress(e.target.value)}
+                    placeholder="Enter address"
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-300"
+                  />
+                </div>
+
+                {/* Advance Payment */}
+                <div>
+                  <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                    <FiDollarSign className="w-4 h-4 text-green-500" />
+                    <span>Advance / Old Gold</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={advancePayment}
+                    onChange={(e) =>
+                      setAdvancePayment(parseFloat(e.target.value) || 0)
+                    }
+                    placeholder="Enter advance amount"
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-all duration-300"
+                  />
+                </div>
               </div>
             </div>
           </div>
 
+          {/* Cart Section */}
           <Cart
             items={cartItems}
-            // makingCharges prop removed
             advancePayment={advancePayment}
             onIncrease={handleIncreaseQuantity}
             onDecrease={handleDecreaseQuantity}
@@ -333,12 +361,12 @@ const PosPage = () => {
             onUpdatePrice={handleUpdateCartPrice}
             onUpdateWeight={handleUpdateCartWeight}
             onUpdatePurity={handleUpdateCartPurity}
-            onUpdateMakingCharge={handleUpdateCartMakingCharge} // Pass new handler
+            onUpdateMakingCharge={handleUpdateCartMakingCharge}
           />
         </div>
       </div>
 
-      {/* Modal */}
+      {/* Invoice Modal */}
       <Modal
         isOpen={isInvoiceModalOpen}
         onClose={() => setIsInvoiceModalOpen(false)}
@@ -346,18 +374,17 @@ const PosPage = () => {
         maxWidth="max-w-2xl"
       >
         <InvoicePreview
-          items={cartItems} // Pass items array which contains per-item making charge
+          items={cartItems}
           customerName={customerName}
           customerAddress={customerAddress}
           customerMobile={customerMobile}
-          // makingCharges prop removed
           advancePayment={advancePayment}
           onClose={() => setIsInvoiceModalOpen(false)}
           onConfirm={handleConfirmSale}
           isSaving={isSaving}
         />
       </Modal>
-    </>
+    </div>
   );
 };
 

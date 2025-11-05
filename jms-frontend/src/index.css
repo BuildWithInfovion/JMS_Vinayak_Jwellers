@@ -7,52 +7,69 @@ body {
   @apply bg-gray-100 text-gray-800;
 }
 
-/* --- REVISED PRINT STYLES --- */
+/* --- FINAL PRINT STYLES --- */
 @media print {
-  /* Hide everything by default */
-  body * {
-    visibility: hidden;
-  }
-
-  /* Make the modal backdrop, its content area (#invoice-content-printable),
-     and ALL children within those areas visible */
-  .modal-backdrop-print-visible,
-  .modal-backdrop-print-visible * {
-      visibility: visible;
-  }
-
-  /* Ensure the backdrop takes up the whole page and resets positioning */
-  .modal-backdrop-print-visible {
-    position: absolute !important; /* Use important to override fixed */
-    left: 0 !important;
-    top: 0 !important;
-    width: 100% !important;
-    height: auto !important; /* Allow content height */
-    overflow: visible !important;
-    background-color: white !important; /* Force white background */
-    padding: 0 !important;
-    margin: 0 !important;
-    z-index: 9999 !important; /* Ensure it's on top */
-  }
-
-   /* Ensure the specific printable content area is also positioned correctly within the backdrop */
-   #invoice-content-printable {
-      position: relative !important; /* Change from absolute if needed */
-      left: auto !important;
-      top: auto !important;
-      width: 100% !important;
-   }
-
-  /* Hide elements specifically marked with .print-hide */
-  .print-hide {
+  /* Hide all common layout elements */
+  body > #root > div > aside, /* Sidebar */
+  body > #root > div > div > header, /* Topbar */
+  .print-hide,
+  button { /* Hide all buttons */
     display: none !important;
   }
 
-  /* Remove default browser margins */
-  body {
+  /* Make the main content area fill the page */
+  main {
+    visibility: visible !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  
+  /* Hide everything inside main by default */
+  main * {
+    visibility: hidden;
+  }
+
+  /* Make ONLY the printable invoice content and its children visible */
+  #invoice-content-printable,
+  #invoice-content-printable * {
+    visibility: visible !important;
+    position: static !important; /* Reset position */
+    color: black !important; /* Ensure text is black */
+    -webkit-print-color-adjust: exact !important; /* Fix for compatibility warning */
+    color-adjust: exact !important; /* Standard property */
+  }
+
+  /* Style the printable area */
+  #invoice-content-printable {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 1.5cm !important; /* Print margins */
+    box-sizing: border-box !important;
+    background-color: white !important; /* Ensure background is white */
+  }
+
+  /* Force colors on specific text */
+  #invoice-content-printable .text-blue-600 { color: #2563eb !important; }
+  #invoice-content-printable .text-green-600 { color: #16a34a !important; }
+
+  /* Body reset for printing */
+  body, html {
      margin: 0 !important;
      padding: 0 !important;
      background-color: white !important;
+     height: auto !important;
+     overflow: visible !important;
   }
+
+  /* Table rules */
+  table { page-break-inside: auto; width: 100% !important; }
+  tr    { page-break-inside: avoid; page-break-after: auto; }
+  thead { display: table-header-group; }
+  tbody { display: table-row-group; }
 }
 /* ----------------------------- */

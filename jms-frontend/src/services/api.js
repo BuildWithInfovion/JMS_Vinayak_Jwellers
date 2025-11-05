@@ -21,6 +21,17 @@ export const login = (username, password) => {
   return axios.post(`${API_BASE_URL}/api/auth/login`, { username, password });
 };
 
+// **********************************************
+// NEW FUNCTION: Change Password
+// **********************************************
+export const changePassword = (oldPassword, newPassword) => {
+  return axios.post(`${API_BASE_URL}/api/auth/change-password`, {
+    oldPassword,
+    newPassword,
+  });
+};
+// **********************************************
+
 // --- Products ---
 export const getProducts = () => {
   return axios.get(`${API_BASE_URL}/api/products`);
@@ -65,3 +76,20 @@ export const getAllGahanRecords = () => {
   return axios.get(`${API_BASE_URL}/api/gahan/all`);
 };
 // ------------------------------------
+
+// --- DEBT (KHATA) ---
+export const getActiveDebts = () => {
+  return axios.get(`${API_BASE_URL}/api/debt`);
+};
+
+export const addDebtPayment = (debtId, paymentAmount) => {
+  return axios.post(`${API_BASE_URL}/api/debt/${debtId}/pay`, {
+    paymentAmount,
+  });
+};
+
+// --- ADDED: New function to manually create debt ---
+export const createDebt = (debtData) => {
+  return axios.post(`${API_BASE_URL}/api/debt`, debtData);
+};
+// ------------------------------------------------

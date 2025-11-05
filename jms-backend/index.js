@@ -3,7 +3,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const connectDB = require("./config/db");
-const authMiddleware = require("./middleware/authMiddleware"); // <-- Import middleware
+const authMiddleware = require("./middleware/authMiddleware");
 
 // Connect to Database
 connectDB();
@@ -15,7 +15,8 @@ const PORT = process.env.PORT || 5001;
 const productRoutes = require("./api/products");
 const saleRoutes = require("./api/sales");
 const authRoutes = require("./api/auth");
-const gahanRoutes = require("./api/gahan"); // <-- Add this line
+const gahanRoutes = require("./api/gahan");
+const debtRoutes = require("./api/debt"); // <-- 1. Import Debt routes
 
 // Middleware
 app.use(cors());
@@ -29,11 +30,13 @@ app.get("/", (req, res) => {
 // Public routes first
 app.use("/api/auth", authRoutes);
 
-// Protected routes - Add authMiddleware before these (or within the route file itself)
+// Protected routes
 app.use("/api/products", authMiddleware, productRoutes);
 app.use("/api/sales", authMiddleware, saleRoutes);
-app.use("/api/gahan", gahanRoutes); // <-- Add this line (middleware is applied within gahan.js)
-// --------------------------
+// Assuming middleware is applied within gahan.js, if not, add it here.
+// Based on our plan, it should be protected.
+app.use("/api/gahan", authMiddleware, gahanRoutes);
+app.use("/api/debt", authMiddleware, debtRoutes); // <-- 2. Add Debt routes
 
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);

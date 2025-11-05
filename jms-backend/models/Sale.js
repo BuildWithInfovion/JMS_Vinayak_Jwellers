@@ -1,7 +1,7 @@
 // backend/models/Sale.js
 const mongoose = require("mongoose");
 
-// soldItemSchema includes: productId, name, quantity, sellingWeight, sellingPricePerGram, sellingPurity
+// ✅ FIXED: Added makingChargePerGram to soldItemSchema
 const soldItemSchema = new mongoose.Schema({
   productId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -13,6 +13,7 @@ const soldItemSchema = new mongoose.Schema({
   sellingWeight: { type: Number, required: true },
   sellingPricePerGram: { type: Number, required: true },
   sellingPurity: { type: String },
+  makingChargePerGram: { type: Number, default: 0 }, // ✅ ADDED THIS FIELD
 });
 
 const saleSchema = new mongoose.Schema(
@@ -20,18 +21,16 @@ const saleSchema = new mongoose.Schema(
     invoiceNumber: { type: Number, unique: true },
     customerName: { type: String, default: "Walk-in Customer" },
     customerAddress: { type: String, default: "" },
-    // --- Add Mobile (Required) ---
     customerMobile: { type: String, required: true },
-    // -----------------------------
     items: [soldItemSchema],
-    subtotal: { type: Number, required: true }, // (Items total)
-    makingCharges: { type: Number, default: 0 },
-    totalAmount: { type: Number, required: true }, // (Subtotal + Making Charges)
+    subtotal: { type: Number, required: true },
+    totalMakingCharges: { type: Number, default: 0 }, // ✅ FIXED: Changed from makingCharges
+    totalAmount: { type: Number, required: true },
     advancePayment: { type: Number, default: 0 },
-    balanceDue: { type: Number, required: true }, // (Total - Advance)
+    balanceDue: { type: Number, required: true },
   },
   {
-    timestamps: true, // Adds createdAt and updatedAt
+    timestamps: true,
   }
 );
 
