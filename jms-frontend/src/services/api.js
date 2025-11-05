@@ -1,6 +1,14 @@
 import axios from "axios";
 
-const PROD_API_URL = "https://jms-vinayak-jewellers-backend.onrender.com";
+// **********************************************
+// UPDATED: Use VITE environment variable for PROD URL
+// The fallback is the hardcoded Vinayak Jewellers link.
+// The Netlify Demo deploy will set VITE_PROD_API_URL to the Demo Backend URL.
+// **********************************************
+const FALLBACK_PROD_API_URL =
+  "https://jms-vinayak-jewellers-backend.onrender.com";
+const PROD_API_URL = import.meta.env.VITE_PROD_API_URL || FALLBACK_PROD_API_URL;
+// **********************************************
 
 // Vite uses import.meta.env, not process.env
 const isProduction = import.meta.env.MODE === "production";
