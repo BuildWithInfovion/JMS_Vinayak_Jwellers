@@ -2,11 +2,15 @@
 const express = require("express");
 const router = express.Router();
 const Product = require("../models/Product"); // Import the Product model
+const authMiddleware = require("../middleware/authMiddleware"); // Import auth middleware
 
-// GET /api/products - Get all products from MongoDB
+// GET /api/products - Get all active products from MongoDB
 router.get("/", async (req, res) => {
   try {
-    const products = await Product.find().sort({ createdAt: -1 }); // Get all products, newest first
+    // Only find products that are active
+    const products = await Product.find({ isActive: true }).sort({
+      createdAt: -1,
+    });
     res.status(200).json(products);
   } catch (error) {
     console.error("Error fetching products:", error);
@@ -15,10 +19,22 @@ router.get("/", async (req, res) => {
 });
 
 // POST /api/products - Add a new product to MongoDB
-router.post("/", async (req, res) => {
+// This route is protected by authMiddleware (assuming all write ops are protected)
+// If only delete is protected, you can remove authMiddleware from here.
+// For now, adding it based on the DELETE route requirement.
+router.post("/", authMiddleware, async (req, res) => {
   try {
-    const { name, category, weight, stock, purity, pricePerGram, unitPrice } =
-      req.body;
+    // *** FIXED: Added 'type' to destructuring ***
+    const {
+      name,
+      category,
+      weight,
+      stock,
+      purity,
+      pricePerGram,
+      unitPrice,
+      type,
+    } = req.body;
 
     // Basic validation
     if (!name || !category || !weight || !stock) {
@@ -53,6 +69,7 @@ router.post("/", async (req, res) => {
         .status(400)
         .json({ message: "Invalid number format for unit price." });
 
+    // *** FIXED: Added type to Product creation ***
     const newProduct = new Product({
       name,
       category,
@@ -61,6 +78,8 @@ router.post("/", async (req, res) => {
       purity: parsedPurity,
       pricePerGram: parsedPricePerGram,
       unitPrice: parsedUnitPrice,
+      type: type || "standard", // Include type, default to 'standard' if not provided
+      // isActive defaults to true in the model
     });
 
     const savedProduct = await newProduct.save(); // Save to database
@@ -80,7 +99,8 @@ router.post("/", async (req, res) => {
 });
 
 // PUT /api/products/:id - Update an existing product
-router.put("/:id", async (req, res) => {
+// Also protecting this route
+router.put("/:id", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
     const updatedData = req.body;
@@ -161,6 +181,37 @@ router.put("/:id", async (req, res) => {
         .json({ message: `Invalid data format for field: ${error.path}` });
     }
     res.status(500).json({ message: "Server error while updating product." });
+  }
+});
+
+// DELETE /api/products/:id - Soft delete a product
+router.delete("/:id", authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const deletedProduct = await Product.findByIdAndUpdate(
+      id,
+      { isActive: false }, // Set the product to inactive
+      { new: true } // Return the updated document
+    );
+
+    if (!deletedProduct) {
+      // If the product wasn't found (or was already deleted and we're re-deleting)
+      return res.status(404).json({ message: "Product not found." });
+    }
+
+    console.log("Soft deleted product:", deletedProduct._id);
+    // We can return the updated product or just a success message
+    res.status(200).json({
+      message: "Product successfully deleted.",
+      product: deletedProduct,
+    });
+  } catch (error) {
+    console.error("Error soft deleting product:", error);
+    if (error.name === "CastError") {
+      return res.status(400).json({ message: "Invalid product ID format." });
+    }
+    res.status(500).json({ message: "Server error while deleting product." });
   }
 });
 

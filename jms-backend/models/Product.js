@@ -10,6 +10,12 @@ const productSchema = new mongoose.Schema(
     purity: { type: Number }, // Optional
     pricePerGram: { type: Number }, // Optional, for Gold/Silver
     unitPrice: { type: Number }, // Optional, for 'Others'
+    isActive: { type: Boolean, default: true }, // Added for soft delete
+    type: {
+      type: String,
+      enum: ["standard", "bulk_weight"],
+      default: "standard",
+    }, // NEW: Product type
   },
   {
     timestamps: true, // Adds createdAt and updatedAt fields

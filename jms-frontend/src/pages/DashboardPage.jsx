@@ -102,7 +102,9 @@ const AlertCard = ({ items }) => {
                   </div>
                 </div>
                 <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold">
-                  Stock: 0
+                  {item.type === "bulk_weight"
+                    ? `Weight: ${item.weight}g`
+                    : `Stock: ${item.stock}`}
                 </span>
               </div>
             ))}
@@ -207,9 +209,18 @@ const DashboardPage = () => {
     };
   }, [sales]);
 
+  // *** UPDATED: Out of stock logic for both product types ***
   const outOfStockItems = useMemo(() => {
-    return products.filter((product) => product.stock <= 0);
+    return products.filter((product) => {
+      if (product.type === "standard") {
+        return product.stock <= 0;
+      } else if (product.type === "bulk_weight") {
+        return product.weight <= 0;
+      }
+      return false;
+    });
   }, [products]);
+  // *** END OF UPDATE ***
 
   if (isLoading) {
     return (

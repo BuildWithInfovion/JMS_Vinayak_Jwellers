@@ -63,10 +63,9 @@ const Cart = ({
             {/* Table Rows (Including MC/g input) */}
             {items.length === 0 ? (
               <tr>
-                {" "}
                 <td colSpan="7" className="text-center py-10 text-gray-500">
                   Cart is empty
-                </td>{" "}
+                </td>
               </tr>
             ) : (
               items.map((item) => (
@@ -76,26 +75,33 @@ const Cart = ({
                     {item.name}
                   </td>
                   <td className="px-2 py-2 whitespace-nowrap text-sm text-center">
-                    {" "}
-                    <div className="flex items-center justify-center space-x-1">
-                      {" "}
-                      <button
-                        onClick={() => onDecrease(item._id)}
-                        className="w-5 h-5 bg-gray-200 rounded-full text-xs"
-                      >
-                        -
-                      </button>{" "}
-                      <span>{item.quantity}</span>{" "}
-                      <button
-                        onClick={() => onIncrease(item._id)}
-                        className="w-5 h-5 bg-gray-200 rounded-full text-xs"
-                      >
-                        +
-                      </button>{" "}
-                    </div>{" "}
+                    {/* *** NEW: Conditional rendering for bulk_weight products *** */}
+                    {item.type === "bulk_weight" ? (
+                      // For bulk_weight: Display locked quantity (always 1)
+                      <div className="flex items-center justify-center">
+                        <span className="text-gray-500">1</span>
+                      </div>
+                    ) : (
+                      // For standard: Show +/- buttons
+                      <div className="flex items-center justify-center space-x-1">
+                        <button
+                          onClick={() => onDecrease(item._id)}
+                          className="w-5 h-5 bg-gray-200 rounded-full text-xs"
+                        >
+                          -
+                        </button>
+                        <span>{item.quantity}</span>
+                        <button
+                          onClick={() => onIncrease(item._id)}
+                          className="w-5 h-5 bg-gray-200 rounded-full text-xs"
+                        >
+                          +
+                        </button>
+                      </div>
+                    )}
+                    {/* *** END OF NEW LOGIC *** */}
                   </td>
                   <td className="px-2 py-2 whitespace-nowrap">
-                    {" "}
                     <input
                       type="number"
                       step="0.01"
@@ -107,19 +113,17 @@ const Cart = ({
                           parseFloat(e.target.value) || 0
                         )
                       }
-                    />{" "}
+                    />
                   </td>
                   <td className="px-2 py-2 whitespace-nowrap">
-                    {" "}
                     <input
                       type="text"
                       className="w-14 border border-gray-300 rounded px-1 py-0.5 text-sm"
                       value={item.sellingPurity}
                       onChange={(e) => onUpdatePurity(item._id, e.target.value)}
-                    />{" "}
+                    />
                   </td>
                   <td className="px-2 py-2 whitespace-nowrap">
-                    {" "}
                     <input
                       type="number"
                       step="0.01"
@@ -128,7 +132,7 @@ const Cart = ({
                       onChange={(e) =>
                         onUpdatePrice(item._id, parseFloat(e.target.value) || 0)
                       }
-                    />{" "}
+                    />
                   </td>
                   {/* MC/g Input */}
                   <td className="px-2 py-2 whitespace-nowrap">
@@ -146,13 +150,12 @@ const Cart = ({
                     />
                   </td>
                   <td className="px-2 py-2 whitespace-nowrap text-sm">
-                    {" "}
                     <button
                       onClick={() => onRemove(item._id)}
                       className="text-red-500 hover:text-red-700"
                     >
                       Remove
-                    </button>{" "}
+                    </button>
                   </td>
                 </tr>
               ))

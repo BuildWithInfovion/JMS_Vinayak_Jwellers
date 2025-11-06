@@ -4,7 +4,12 @@ import ProductTable from "../components/inventory/ProductTable";
 import Modal from "../components/common/Modal";
 import AddProductForm from "../components/inventory/AddProductForm";
 import EditProductForm from "../components/inventory/EditProductForm";
-import { getProducts, addProduct, updateProduct } from "../services/api";
+import {
+  getProducts,
+  addProduct,
+  updateProduct,
+  deleteProduct,
+} from "../services/api";
 import { FiPlus, FiSearch, FiPackage } from "react-icons/fi";
 
 const InventoryPage = () => {
@@ -42,6 +47,30 @@ const InventoryPage = () => {
     );
   }, [products, searchTerm]);
 
+  // *** UPDATED: Calculate In Stock products correctly ***
+  const inStockCount = useMemo(() => {
+    return products.filter((product) => {
+      if (product.type === "standard") {
+        return product.stock > 0;
+      } else if (product.type === "bulk_weight") {
+        return product.weight > 0;
+      }
+      return false;
+    }).length;
+  }, [products]);
+
+  // *** UPDATED: Calculate Out of Stock products correctly ***
+  const outOfStockCount = useMemo(() => {
+    return products.filter((product) => {
+      if (product.type === "standard") {
+        return product.stock <= 0;
+      } else if (product.type === "bulk_weight") {
+        return product.weight <= 0;
+      }
+      return false;
+    }).length;
+  }, [products]);
+
   const handleAddProduct = async (newProductData) => {
     try {
       await addProduct(newProductData);
@@ -73,6 +102,26 @@ const InventoryPage = () => {
       alert("Failed to update product. Please try again.");
     }
   };
+
+  // *** NEW: handleDeleteProduct function ***
+  const handleDeleteProduct = async (productId, productName) => {
+    // Show confirmation dialog
+    if (
+      window.confirm(
+        `Are you sure you want to delete "${productName}"?\n\nThis will hide it from inventory and POS, but sales records will remain intact.`
+      )
+    ) {
+      try {
+        await deleteProduct(productId);
+        // Refresh the product list after successful deletion
+        fetchProducts();
+      } catch (error) {
+        console.error("Failed to delete product:", error);
+        alert("Failed to delete product. Please try again.");
+      }
+    }
+  };
+  // ****************************************
 
   if (isLoading) {
     return (
@@ -135,7 +184,8 @@ const InventoryPage = () => {
                   In Stock
                 </p>
                 <p className="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-                  {products.filter((p) => p.stock > 0).length}
+                  {/* *** UPDATED: Use inStockCount *** */}
+                  {inStockCount}
                 </p>
               </div>
               <div className="bg-gradient-to-br from-green-500 to-emerald-600 p-4 rounded-xl">
@@ -163,7 +213,8 @@ const InventoryPage = () => {
                   Out of Stock
                 </p>
                 <p className="text-3xl font-bold bg-gradient-to-r from-red-600 to-orange-600 bg-clip-text text-transparent">
-                  {products.filter((p) => p.stock <= 0).length}
+                  {/* *** UPDATED: Use outOfStockCount *** */}
+                  {outOfStockCount}
                 </p>
               </div>
               <div className="bg-gradient-to-br from-red-500 to-orange-600 p-4 rounded-xl">
@@ -207,6 +258,7 @@ const InventoryPage = () => {
         <ProductTable
           products={filteredProducts}
           onEdit={handleOpenEditModal}
+          onDelete={handleDeleteProduct}
         />
       </div>
 

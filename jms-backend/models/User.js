@@ -1,4 +1,3 @@
-// backend/models/User.js
 const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema(
@@ -10,6 +9,9 @@ const userSchema = new mongoose.Schema(
       enum: ["owner", "staff"], // Only two roles allowed
       required: true,
     },
+    // NEW FIELDS FOR PASSWORD RESET
+    resetPasswordToken: String,
+    resetPasswordExpire: Date,
   },
   {
     timestamps: true,

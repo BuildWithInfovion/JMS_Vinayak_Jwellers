@@ -49,20 +49,33 @@ router.post("/", async (req, res) => {
 
     const soldItems = [];
     for (const item of items) {
-      // --- THIS IS THE FIX ---
-      // It now correctly reads item.productId from the frontend payload
       const product = await Product.findById(item.productId).session(session);
-      // --- END OF FIX ---
 
       if (!product) {
         throw new Error(`Product not found: ${item.name}`);
       }
-      if (product.stock < item.quantity) {
-        throw new Error(
-          `Insufficient stock for: ${item.name}. Available: ${product.stock}`
-        );
+
+      // *** NEW: Handle different product types ***
+      if (product.type === "standard") {
+        // Standard product: Check stock and deduct quantity
+        if (product.stock < item.quantity) {
+          throw new Error(
+            `Insufficient stock for: ${item.name}. Available: ${product.stock}`
+          );
+        }
+        product.stock -= item.quantity;
+      } else if (product.type === "bulk_weight") {
+        // Bulk weight product: Check weight and deduct selling weight
+        if (product.weight < item.sellingWeight) {
+          throw new Error(
+            `Insufficient weight for ${item.name}. Only ${product.weight}g left.`
+          );
+        }
+        product.weight -= item.sellingWeight;
+        // Stock stays at 1 for bulk_weight products
       }
-      product.stock -= item.quantity;
+      // *** END OF NEW LOGIC ***
+
       await product.save({ session });
 
       soldItems.push({
@@ -72,7 +85,7 @@ router.post("/", async (req, res) => {
         sellingWeight: item.sellingWeight,
         sellingPricePerGram: item.sellingPricePerGram,
         sellingPurity: item.sellingPurity,
-        makingChargePerGram: item.makingChargePerGram, // This is now correct
+        makingChargePerGram: item.makingChargePerGram,
       });
     }
 
@@ -81,9 +94,9 @@ router.post("/", async (req, res) => {
       customerName,
       customerAddress,
       customerMobile,
-      items: soldItems, // This array now has the correct MC/g
+      items: soldItems,
       subtotal,
-      totalMakingCharges: totalMakingCharges, // This is also correct
+      totalMakingCharges: totalMakingCharges,
       totalAmount,
       advancePayment,
       balanceDue,

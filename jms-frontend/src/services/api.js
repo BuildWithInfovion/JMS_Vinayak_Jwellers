@@ -30,7 +30,23 @@ export const login = (username, password) => {
 };
 
 // **********************************************
-// NEW FUNCTION: Change Password
+// NEW FUNCTION: Forgot Password (Request Token)
+// **********************************************
+export const forgotPassword = (username) => {
+  return axios.post(`${API_BASE_URL}/api/auth/forgot-password`, { username });
+};
+
+// **********************************************
+// NEW FUNCTION: Reset Password (Use Token to change password)
+// **********************************************
+export const resetPassword = (token, newPassword) => {
+  return axios.put(`${API_BASE_URL}/api/auth/reset-password/${token}`, {
+    newPassword,
+  });
+};
+
+// **********************************************
+// EXISTING FUNCTION: Change Password (Protected)
 // **********************************************
 export const changePassword = (oldPassword, newPassword) => {
   return axios.post(`${API_BASE_URL}/api/auth/change-password`, {
@@ -54,6 +70,12 @@ export const addProduct = (newProduct) => {
 export const updateProduct = (id, updatedData) => {
   return axios.put(`${API_BASE_URL}/api/products/${id}`, updatedData);
 };
+
+// *** NEW: Add deleteProduct function ***
+export const deleteProduct = (id) => {
+  return axios.delete(`${API_BASE_URL}/api/products/${id}`);
+};
+// **************************************
 
 // --- Sales ---
 export const createSale = (saleData) => {

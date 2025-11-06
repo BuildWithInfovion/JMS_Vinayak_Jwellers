@@ -1,7 +1,7 @@
 // frontend/src/components/inventory/ProductTable.jsx
 import React from "react";
 
-const ProductTable = ({ products, onEdit }) => {
+const ProductTable = ({ products, onEdit, onDelete }) => {
   // Helper function to format dates nicely
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
@@ -13,6 +13,22 @@ const ProductTable = ({ products, onEdit }) => {
       minute: "2-digit",
       hour12: true,
     });
+  };
+
+  // Helper function to render product type badge
+  const renderTypeBadge = (type) => {
+    if (type === "bulk_weight") {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+          Bulk Weight
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+        Standard
+      </span>
+    );
   };
 
   return (
@@ -34,6 +50,13 @@ const ProductTable = ({ products, onEdit }) => {
             >
               Category
             </th>
+            {/* NEW: Type Column */}
+            <th
+              scope="col"
+              className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+            >
+              Type
+            </th>
             <th
               scope="col"
               className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
@@ -51,18 +74,24 @@ const ProductTable = ({ products, onEdit }) => {
               className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
             >
               Created At
-            </th>{" "}
+            </th>
             <th
               scope="col"
               className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
             >
               Last Updated
-            </th>{" "}
+            </th>
             <th
               scope="col"
               className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
             >
               Actions
+            </th>
+            <th
+              scope="col"
+              className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+            >
+              Delete
             </th>
           </tr>
         </thead>
@@ -75,6 +104,10 @@ const ProductTable = ({ products, onEdit }) => {
               <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                 {product.category}
               </td>
+              {/* NEW: Type Badge */}
+              <td className="px-4 py-4 whitespace-nowrap text-sm">
+                {renderTypeBadge(product.type)}
+              </td>
               <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                 {product.weight.toFixed(2)}
               </td>
@@ -83,16 +116,24 @@ const ProductTable = ({ products, onEdit }) => {
               </td>
               <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                 {formatDate(product.createdAt)}
-              </td>{" "}
+              </td>
               <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                 {formatDate(product.updatedAt)}
-              </td>{" "}
+              </td>
               <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
                 <button
                   onClick={() => onEdit(product)}
                   className="text-indigo-600 hover:text-indigo-900"
                 >
                   Edit
+                </button>
+              </td>
+              <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
+                <button
+                  onClick={() => onDelete(product._id, product.name)}
+                  className="text-red-600 hover:text-red-900"
+                >
+                  Delete
                 </button>
               </td>
             </tr>

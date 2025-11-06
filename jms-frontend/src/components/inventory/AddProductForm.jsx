@@ -7,6 +7,7 @@ const AddProductForm = ({ onSave, onClose }) => {
     category: "Gold",
     weight: "",
     stock: "",
+    type: "standard", // NEW: Product type
   });
 
   const handleChange = (e) => {
@@ -77,13 +78,34 @@ const AddProductForm = ({ onSave, onClose }) => {
           </select>
         </div>
 
-        {/* Weight */}
+        {/* NEW: Product Type */}
+        <div>
+          <label
+            htmlFor="type"
+            className="block text-sm font-medium text-gray-700"
+          >
+            Product Type
+          </label>
+          <select
+            id="type"
+            value={formData.type}
+            onChange={handleChange}
+            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+          >
+            <option value="standard">Standard</option>
+            <option value="bulk_weight">Bulk Weight</option>
+          </select>
+        </div>
+
+        {/* Weight - Conditional Label */}
         <div>
           <label
             htmlFor="weight"
             className="block text-sm font-medium text-gray-700"
           >
-            Weight (grams)
+            {formData.type === "bulk_weight"
+              ? "Total Weight in Unit (g)"
+              : "Weight (g)"}
           </label>
           <input
             type="number"
@@ -96,13 +118,15 @@ const AddProductForm = ({ onSave, onClose }) => {
           />
         </div>
 
-        {/* Stock */}
+        {/* Stock - Conditional Label */}
         <div>
           <label
             htmlFor="stock"
             className="block text-sm font-medium text-gray-700"
           >
-            Stock Quantity
+            {formData.type === "bulk_weight"
+              ? "Units (e.g., 1 Box)"
+              : "Stock Quantity"}
           </label>
           <input
             type="number"
