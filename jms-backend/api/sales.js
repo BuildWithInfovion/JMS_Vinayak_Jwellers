@@ -1,4 +1,3 @@
-// backend/api/sales.js
 const express = require("express");
 const router = express.Router();
 const mongoose = require("mongoose");
@@ -55,7 +54,6 @@ router.post("/", async (req, res) => {
         throw new Error(`Product not found: ${item.name}`);
       }
 
-      // *** NEW: Handle different product types ***
       if (product.type === "standard") {
         // Standard product: Check stock and deduct quantity
         if (product.stock < item.quantity) {
@@ -63,6 +61,18 @@ router.post("/", async (req, res) => {
             `Insufficient stock for: ${item.name}. Available: ${product.stock}`
           );
         }
+
+        // **********************************************
+        // NEW LOGIC (THE FIX): Check and deduct weight for Standard products
+        // **********************************************
+        if (product.weight < item.sellingWeight) {
+          throw new Error(
+            `Insufficient weight for ${item.name}. Only ${product.weight}g left.`
+          );
+        }
+        product.weight -= item.sellingWeight;
+        // **********************************************
+
         product.stock -= item.quantity;
       } else if (product.type === "bulk_weight") {
         // Bulk weight product: Check weight and deduct selling weight
@@ -74,7 +84,6 @@ router.post("/", async (req, res) => {
         product.weight -= item.sellingWeight;
         // Stock stays at 1 for bulk_weight products
       }
-      // *** END OF NEW LOGIC ***
 
       await product.save({ session });
 

@@ -1,7 +1,8 @@
 // frontend/src/components/inventory/ProductTable.jsx
 import React from "react";
 
-const ProductTable = ({ products, onEdit, onDelete }) => {
+// NEW: Accept onRestock prop
+const ProductTable = ({ products, onEdit, onDelete, onRestock }) => {
   // Helper function to format dates nicely
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
@@ -120,7 +121,16 @@ const ProductTable = ({ products, onEdit, onDelete }) => {
               <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                 {formatDate(product.updatedAt)}
               </td>
-              <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
+              {/* --- UPDATED: Actions Cell --- */}
+              <td className="px-4 py-4 whitespace-nowrap text-sm font-medium space-x-4">
+                {/* NEW: "Add Stock" Button */}
+                <button
+                  onClick={() => onRestock(product)}
+                  className="text-green-600 hover:text-green-900 font-semibold"
+                >
+                  Add Stock
+                </button>
+
                 <button
                   onClick={() => onEdit(product)}
                   className="text-indigo-600 hover:text-indigo-900"
@@ -128,6 +138,7 @@ const ProductTable = ({ products, onEdit, onDelete }) => {
                   Edit
                 </button>
               </td>
+              {/* ---------------------------- */}
               <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
                 <button
                   onClick={() => onDelete(product._id, product.name)}

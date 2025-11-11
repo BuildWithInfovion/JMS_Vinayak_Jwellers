@@ -1,20 +1,23 @@
-// frontend/src/pages/InventoryPage.jsx
 import React, { useState, useEffect, useMemo } from "react";
 import ProductTable from "../components/inventory/ProductTable";
 import Modal from "../components/common/Modal";
 import AddProductForm from "../components/inventory/AddProductForm";
 import EditProductForm from "../components/inventory/EditProductForm";
+// NEW: Import RestockProductForm
+import RestockProductForm from "../components/inventory/RestockProductForm";
 import {
   getProducts,
   addProduct,
   updateProduct,
   deleteProduct,
+  restockProduct, // NEW: Import restockProduct
 } from "../services/api";
 import { FiPlus, FiSearch, FiPackage } from "react-icons/fi";
 
 const InventoryPage = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isRestockModalOpen, setIsRestockModalOpen] = useState(false); // NEW: State for restock modal
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [products, setProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -103,9 +106,31 @@ const InventoryPage = () => {
     }
   };
 
+  // *** NEW: Handlers for Restock Modal ***
+  const handleOpenRestockModal = (product) => {
+    setSelectedProduct(product);
+    setIsRestockModalOpen(true);
+  };
+
+  const handleCloseRestockModal = () => {
+    setIsRestockModalOpen(false);
+    setSelectedProduct(null);
+  };
+
+  const handleRestockProduct = async (productId, data) => {
+    try {
+      await restockProduct(productId, data);
+      handleCloseRestockModal();
+      fetchProducts();
+    } catch (error) {
+      console.error("Failed to restock product:", error);
+      alert("Failed to add stock. Please try again.");
+    }
+  };
+  // ****************************************
+
   // *** NEW: handleDeleteProduct function ***
   const handleDeleteProduct = async (productId, productName) => {
-    // Show confirmation dialog
     if (
       window.confirm(
         `Are you sure you want to delete "${productName}"?\n\nThis will hide it from inventory and POS, but sales records will remain intact.`
@@ -113,7 +138,6 @@ const InventoryPage = () => {
     ) {
       try {
         await deleteProduct(productId);
-        // Refresh the product list after successful deletion
         fetchProducts();
       } catch (error) {
         console.error("Failed to delete product:", error);
@@ -184,7 +208,6 @@ const InventoryPage = () => {
                   In Stock
                 </p>
                 <p className="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-                  {/* *** UPDATED: Use inStockCount *** */}
                   {inStockCount}
                 </p>
               </div>
@@ -213,7 +236,6 @@ const InventoryPage = () => {
                   Out of Stock
                 </p>
                 <p className="text-3xl font-bold bg-gradient-to-r from-red-600 to-orange-600 bg-clip-text text-transparent">
-                  {/* *** UPDATED: Use outOfStockCount *** */}
                   {outOfStockCount}
                 </p>
               </div>
@@ -259,6 +281,7 @@ const InventoryPage = () => {
           products={filteredProducts}
           onEdit={handleOpenEditModal}
           onDelete={handleDeleteProduct}
+          onRestock={handleOpenRestockModal} // NEW: Pass the handler
         />
       </div>
 
@@ -283,6 +306,19 @@ const InventoryPage = () => {
           product={selectedProduct}
           onSave={handleUpdateProduct}
           onClose={handleCloseEditModal}
+        />
+      </Modal>
+
+      {/* NEW: Restock Modal */}
+      <Modal
+        isOpen={isRestockModalOpen}
+        onClose={handleCloseRestockModal}
+        title={`Add Stock to: ${selectedProduct?.name || "Product"}`}
+      >
+        <RestockProductForm
+          product={selectedProduct}
+          onSave={handleRestockProduct}
+          onClose={handleCloseRestockModal}
         />
       </Modal>
     </div>

@@ -19,12 +19,9 @@ router.get("/", async (req, res) => {
 });
 
 // POST /api/products - Add a new product to MongoDB
-// This route is protected by authMiddleware (assuming all write ops are protected)
-// If only delete is protected, you can remove authMiddleware from here.
-// For now, adding it based on the DELETE route requirement.
+// This route is protected by authMiddleware
 router.post("/", authMiddleware, async (req, res) => {
   try {
-    // *** FIXED: Added 'type' to destructuring ***
     const {
       name,
       category,
@@ -69,7 +66,15 @@ router.post("/", authMiddleware, async (req, res) => {
         .status(400)
         .json({ message: "Invalid number format for unit price." });
 
-    // *** FIXED: Added type to Product creation ***
+    const productType = type || "standard";
+
+    // ***************************************************************
+    // --- "RESTOCK" LOGIC REMOVED FROM THIS ROUTE ---
+    // This route will now ALWAYS create a new product, as intended
+    // by the "Add Product" button.
+    // ***************************************************************
+
+    console.log("Creating new product entry...");
     const newProduct = new Product({
       name,
       category,
@@ -78,7 +83,7 @@ router.post("/", authMiddleware, async (req, res) => {
       purity: parsedPurity,
       pricePerGram: parsedPricePerGram,
       unitPrice: parsedUnitPrice,
-      type: type || "standard", // Include type, default to 'standard' if not provided
+      type: productType,
       // isActive defaults to true in the model
     });
 
@@ -98,8 +103,51 @@ router.post("/", authMiddleware, async (req, res) => {
   }
 });
 
-// PUT /api/products/:id - Update an existing product
-// Also protecting this route
+// ***************************************************************
+// --- NEW ROUTE: "RESTOCK" ---
+// This route will be called by the new "Add Stock" modal.
+// ***************************************************************
+// PUT /api/products/:id/restock - Add stock to an existing product
+router.put("/:id/restock", authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { weightToAdd, quantityToAdd } = req.body;
+
+    const parsedWeightToAdd = parseFloat(weightToAdd);
+    const parsedQuantityToAdd = parseInt(quantityToAdd, 10);
+
+    if (isNaN(parsedWeightToAdd) || isNaN(parsedQuantityToAdd)) {
+      return res
+        .status(400)
+        .json({ message: "Invalid number format for weight or quantity." });
+    }
+
+    if (parsedWeightToAdd < 0 || parsedQuantityToAdd < 0) {
+      return res
+        .status(400)
+        .json({ message: "Restock values cannot be negative." });
+    }
+
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({ message: "Product not found." });
+    }
+
+    // Add the new amounts to the existing totals
+    product.weight += parsedWeightToAdd;
+    product.stock += parsedQuantityToAdd;
+
+    const updatedProduct = await product.save();
+
+    console.log("Restocked product in DB:", updatedProduct);
+    res.status(200).json(updatedProduct);
+  } catch (error) {
+    console.error("Error restocking product:", error);
+    res.status(500).json({ message: "Server error while restocking product." });
+  }
+});
+
+// PUT /api/products/:id - Update an existing product (The "Edit" button)
 router.put("/:id", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;

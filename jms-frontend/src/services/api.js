@@ -77,6 +77,15 @@ export const deleteProduct = (id) => {
 };
 // **************************************
 
+// **********************************************
+// NEW FUNCTION: Restock Product
+// **********************************************
+export const restockProduct = (id, restockData) => {
+  // restockData should be { quantityToAdd, weightToAdd }
+  return axios.put(`${API_BASE_URL}/api/products/${id}/restock`, restockData);
+};
+// **********************************************
+
 // --- Sales ---
 export const createSale = (saleData) => {
   return axios.post(`${API_BASE_URL}/api/sales`, saleData);
