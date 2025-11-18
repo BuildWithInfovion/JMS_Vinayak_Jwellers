@@ -1,7 +1,5 @@
-// backend/models/Sale.js
 const mongoose = require("mongoose");
 
-// ✅ FIXED: Added makingChargePerGram to soldItemSchema
 const soldItemSchema = new mongoose.Schema({
   productId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -13,7 +11,7 @@ const soldItemSchema = new mongoose.Schema({
   sellingWeight: { type: Number, required: true },
   sellingPricePerGram: { type: Number, required: true },
   sellingPurity: { type: String },
-  makingChargePerGram: { type: Number, default: 0 }, // ✅ ADDED THIS FIELD
+  makingChargePerGram: { type: Number, default: 0 },
 });
 
 const saleSchema = new mongoose.Schema(
@@ -24,7 +22,13 @@ const saleSchema = new mongoose.Schema(
     customerMobile: { type: String, required: true },
     items: [soldItemSchema],
     subtotal: { type: Number, required: true },
-    totalMakingCharges: { type: Number, default: 0 }, // ✅ FIXED: Changed from makingCharges
+    totalMakingCharges: { type: Number, default: 0 },
+
+    // *** THESE FIELDS MUST BE HERE FOR THE DATA TO SAVE ***
+    discount: { type: Number, default: 0 },
+    oldGoldWeight: { type: Number, default: 0 },
+    // ****************************************************
+
     totalAmount: { type: Number, required: true },
     advancePayment: { type: Number, default: 0 },
     balanceDue: { type: Number, required: true },

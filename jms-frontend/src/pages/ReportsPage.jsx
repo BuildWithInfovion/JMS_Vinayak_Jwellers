@@ -99,6 +99,7 @@ const ReportsPage = () => {
     setSelectedSale(null);
   };
 
+  // *** UPDATED PDF GENERATION LOGIC ***
   const generatePDF = () => {
     if (filteredSales.length === 0) {
       alert("No sales data to export...");
@@ -106,6 +107,7 @@ const ReportsPage = () => {
     }
     try {
       const doc = new jsPDF();
+      // Updated columns to include Discount
       const tableColumn = [
         "Invoice #",
         "Date",
@@ -113,6 +115,7 @@ const ReportsPage = () => {
         "Item Names",
         "Qty",
         "Total",
+        "Discount", // New Column
         "Balance Due",
       ];
       const tableRows = [];
@@ -133,6 +136,7 @@ const ReportsPage = () => {
           (sum, item) => sum + item.quantity,
           0
         );
+
         const saleData = [
           sale.invoiceNumber,
           formatDate(sale.createdAt),
@@ -140,6 +144,8 @@ const ReportsPage = () => {
           itemNames,
           totalQty,
           `Rs ${(sale.totalAmount || 0).toFixed(2)}`,
+          // Show Discount
+          `Rs ${(sale.discount || 0).toFixed(2)}`,
           `Rs ${(sale.balanceDue || 0).toFixed(2)}`,
         ];
         tableRows.push(saleData);
@@ -163,10 +169,21 @@ const ReportsPage = () => {
         14,
         finalY + 15
       );
+      // New Total Discount line (optional, but good for reports)
+      const totalDiscountGiven = filteredSales.reduce(
+        (sum, s) => sum + (s.discount || 0),
+        0
+      );
+      doc.text(
+        `Total Discounts Given: Rs ${totalDiscountGiven.toFixed(2)}`,
+        14,
+        finalY + 20
+      );
+
       doc.text(
         `Total Balance Due: Rs ${stats.totalBalance.toFixed(2)}`,
         14,
-        finalY + 20
+        finalY + 25
       );
 
       const pdfBlob = doc.output("blob");
@@ -184,6 +201,7 @@ const ReportsPage = () => {
       console.error("PDF Error:", error);
     }
   };
+  // ************************************
 
   if (isLoading) {
     return (

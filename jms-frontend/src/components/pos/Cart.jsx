@@ -4,6 +4,7 @@ import React from "react";
 const Cart = ({
   items,
   advancePayment,
+  discount, // *** NEW PROP ***
   onIncrease,
   onDecrease,
   onRemove,
@@ -25,8 +26,11 @@ const Cart = ({
     return total + itemMakingCharge * item.quantity;
   }, 0);
 
-  const grandTotal = itemsSubtotal + totalMakingCharges; // Calculation includes MC
-  const balanceDue = grandTotal - (advancePayment || 0);
+  const grandTotal = itemsSubtotal + totalMakingCharges;
+
+  // *** UPDATED CALCULATION: Subtract Discount ***
+  const balanceDue = grandTotal - (advancePayment || 0) - (discount || 0);
+  // **********************************************
 
   return (
     <div className="bg-white shadow rounded-lg p-4 flex flex-col h-full">
@@ -75,7 +79,7 @@ const Cart = ({
                     {item.name}
                   </td>
                   <td className="px-2 py-2 whitespace-nowrap text-sm text-center">
-                    {/* *** NEW: Conditional rendering for bulk_weight products *** */}
+                    {/* Conditional rendering for bulk_weight products */}
                     {item.type === "bulk_weight" ? (
                       // For bulk_weight: Display locked quantity (always 1)
                       <div className="flex items-center justify-center">
@@ -99,7 +103,6 @@ const Cart = ({
                         </button>
                       </div>
                     )}
-                    {/* *** END OF NEW LOGIC *** */}
                   </td>
                   <td className="px-2 py-2 whitespace-nowrap">
                     <input
@@ -170,27 +173,31 @@ const Cart = ({
           <span>Subtotal (Item Total)</span>
           <span>₹{itemsSubtotal.toFixed(2)}</span>
         </div>
-        {/* Making Charges line is REMOVED from display */}
-        {/*
-        <div className="flex justify-between text-md">
-          <span>Making Charges (मजुरी)</span>
-          <span>₹{totalMakingCharges.toFixed(2)}</span>
-        </div>
-        */}
+
         <div className="flex justify-between font-bold text-lg border-t pt-1">
-          {/* Grand Total STILL INCLUDES making charges */}
           <span>Total (एकूण)</span>
           <span>₹{grandTotal.toFixed(2)}</span>
         </div>
+
         <div className="flex justify-between text-md">
           <span>Advance Paid (नगदी जमा)</span>
           <span className="text-green-600">
             - ₹{(advancePayment || 0).toFixed(2)}
           </span>
         </div>
+
+        {/* *** NEW: Discount Line *** */}
+        <div className="flex justify-between text-md">
+          <span>Discount (सूट)</span>
+          <span className="text-purple-600">
+            - ₹{(discount || 0).toFixed(2)}
+          </span>
+        </div>
+        {/* ************************** */}
+
         <div className="flex justify-between font-bold text-xl text-blue-600 border-t pt-2">
-          {/* Balance Due STILL INCLUDES making charges */}
           <span>Balance Due (बाकी येणे)</span>
+          {/* This now reflects the discount subtraction */}
           <span>₹{balanceDue.toFixed(2)}</span>
         </div>
 

@@ -10,6 +10,10 @@ const InvoicePreview = ({
   customerAddress,
   customerMobile,
   advancePayment,
+  // *** NEW PROPS ***
+  discount,
+  oldGoldWeight,
+  // ****************
   onClose,
   onConfirm, // This is the 'handleConfirmSale' function from PosPage
   isSaving,
@@ -27,14 +31,15 @@ const InvoicePreview = ({
   }, 0);
 
   const grandTotal = itemsSubtotal + totalMakingCharges;
-  const balanceDue = grandTotal - (advancePayment || 0);
+
+  // *** UPDATED CALCULATION for Preview ***
+  const balanceDue = grandTotal - (advancePayment || 0) - (discount || 0);
 
   // This function is called when the "Confirm" button is clicked
   const handleConfirmClick = () => {
     if (isSaving) return;
 
     // Pass all calculated data back to PosPage to be saved
-    // This part is correct and essential.
     onConfirm({
       items: items,
       totalAmount: grandTotal,
@@ -45,6 +50,9 @@ const InvoicePreview = ({
       customerName: customerName,
       customerAddress: customerAddress,
       customerMobile: customerMobile,
+      // *** Pass back new fields ***
+      discount: discount,
+      oldGoldWeight: oldGoldWeight,
     });
   };
 
@@ -95,7 +103,16 @@ const InvoicePreview = ({
                 })}
               </span>
             </div>
-            {/* Note: Invoice # will be on the PDF, not this preview */}
+            {/* *** NEW: Old Gold Weight Display *** */}
+            {oldGoldWeight > 0 && (
+              <div className="flex justify-between md:justify-end md:gap-4 mt-1">
+                <span className="text-amber-600 font-medium">Old Gold Wt:</span>
+                <span className="font-bold text-gray-800">
+                  {oldGoldWeight} g
+                </span>
+              </div>
+            )}
+            {/* *********************************** */}
           </div>
         </div>
 
@@ -184,6 +201,15 @@ const InvoicePreview = ({
                 - ₹{(advancePayment || 0).toFixed(2)}
               </span>
             </div>
+
+            {/* *** NEW: Discount Line *** */}
+            <div className="flex justify-between py-2 text-purple-600">
+              <span className="font-medium">Discount (सूट):</span>
+              <span className="font-medium">
+                - ₹{(discount || 0).toFixed(2)}
+              </span>
+            </div>
+            {/* ************************** */}
 
             <div className="flex justify-between py-3 border-t-2 border-gray-900 mt-2">
               <span className="text-xl font-bold text-blue-600">

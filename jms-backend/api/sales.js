@@ -22,6 +22,12 @@ router.get("/", async (req, res) => {
 
 // POST /api/sales - Create a new sale and deduct stock (Protected)
 router.post("/", async (req, res) => {
+  // *** DEBUG LOG: Print what the frontend sent ***
+  console.log("--- NEW SALE REQUEST RECEIVED ---");
+  console.log("Discount received:", req.body.discount);
+  console.log("Old Gold Weight received:", req.body.oldGoldWeight);
+  // **********************************************
+
   const {
     items,
     totalAmount,
@@ -32,6 +38,9 @@ router.post("/", async (req, res) => {
     customerName,
     customerAddress,
     customerMobile,
+    // New fields
+    discount,
+    oldGoldWeight,
   } = req.body;
 
   if (!items || items.length === 0 || !totalAmount || !customerMobile) {
@@ -55,34 +64,25 @@ router.post("/", async (req, res) => {
       }
 
       if (product.type === "standard") {
-        // Standard product: Check stock and deduct quantity
         if (product.stock < item.quantity) {
           throw new Error(
             `Insufficient stock for: ${item.name}. Available: ${product.stock}`
           );
         }
-
-        // **********************************************
-        // NEW LOGIC (THE FIX): Check and deduct weight for Standard products
-        // **********************************************
         if (product.weight < item.sellingWeight) {
           throw new Error(
             `Insufficient weight for ${item.name}. Only ${product.weight}g left.`
           );
         }
         product.weight -= item.sellingWeight;
-        // **********************************************
-
         product.stock -= item.quantity;
       } else if (product.type === "bulk_weight") {
-        // Bulk weight product: Check weight and deduct selling weight
         if (product.weight < item.sellingWeight) {
           throw new Error(
             `Insufficient weight for ${item.name}. Only ${product.weight}g left.`
           );
         }
         product.weight -= item.sellingWeight;
-        // Stock stays at 1 for bulk_weight products
       }
 
       await product.save({ session });
@@ -109,11 +109,16 @@ router.post("/", async (req, res) => {
       totalAmount,
       advancePayment,
       balanceDue,
+      // *** Save the new fields ***
+      discount: discount || 0,
+      oldGoldWeight: oldGoldWeight || 0,
     });
 
-    await newSale.save({ session });
+    // *** DEBUG LOG: Check what Mongoose is about to save ***
+    console.log("Saving Sale Object:", newSale);
+    // ******************************************************
 
-    // Automatic debt logic is removed, as requested.
+    await newSale.save({ session });
 
     await session.commitTransaction();
     res.status(201).json(newSale);

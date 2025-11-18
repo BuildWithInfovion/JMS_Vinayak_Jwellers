@@ -11,6 +11,8 @@ import {
   FiPhone,
   FiMapPin,
   FiDollarSign,
+  FiPercent, // New icon for discount
+  FiLayers, // New icon for old gold weight
 } from "react-icons/fi";
 
 const PosPage = () => {
@@ -19,10 +21,18 @@ const PosPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Customer & Payment State
   const [customerName, setCustomerName] = useState("");
   const [customerAddress, setCustomerAddress] = useState("");
   const [customerMobile, setCustomerMobile] = useState("");
   const [advancePayment, setAdvancePayment] = useState(0);
+
+  // *** NEW STATE VARIABLES ***
+  const [discount, setDiscount] = useState(0);
+  const [oldGoldWeight, setOldGoldWeight] = useState(0);
+  // **************************
+
   const [searchTerm, setSearchTerm] = useState("");
 
   const fetchProductsForPOS = async () => {
@@ -207,6 +217,9 @@ const PosPage = () => {
         customerName: saleDataFromModal.customerName,
         customerAddress: saleDataFromModal.customerAddress,
         customerMobile: saleDataFromModal.customerMobile,
+        // *** Pass the NEW fields to the backend ***
+        discount: saleDataFromModal.discount,
+        oldGoldWeight: saleDataFromModal.oldGoldWeight,
       };
 
       await createSale(salePayload);
@@ -218,6 +231,8 @@ const PosPage = () => {
       setCustomerAddress("");
       setCustomerMobile("");
       setAdvancePayment(0);
+      setDiscount(0); // Reset discount
+      setOldGoldWeight(0); // Reset old gold weight
       setIsInvoiceModalOpen(false);
       fetchProductsForPOS();
     } catch (error) {
@@ -277,7 +292,7 @@ const PosPage = () => {
             <div className="bg-gradient-to-r from-blue-500 to-cyan-500 px-6 py-4">
               <h4 className="text-lg font-bold text-white flex items-center space-x-2">
                 <FiUser className="w-5 h-5" />
-                <span>Customer Information</span>
+                <span>Customer & Payment Details</span>
               </h4>
             </div>
 
@@ -316,7 +331,7 @@ const PosPage = () => {
                 </div>
 
                 {/* Address */}
-                <div>
+                <div className="md:col-span-2">
                   <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
                     <FiMapPin className="w-4 h-4 text-blue-500" />
                     <span>Address</span>
@@ -330,11 +345,29 @@ const PosPage = () => {
                   />
                 </div>
 
-                {/* Advance Payment */}
+                {/* *** NEW: Old Gold Weight (Grams) *** */}
+                <div>
+                  <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                    <FiLayers className="w-4 h-4 text-amber-600" />
+                    <span>Old Gold WT(G)</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={oldGoldWeight}
+                    onChange={(e) =>
+                      setOldGoldWeight(parseFloat(e.target.value) || 0)
+                    }
+                    placeholder="Weight in grams"
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all duration-300"
+                    min="0"
+                  />
+                </div>
+
+                {/* Advance / Old Gold Value */}
                 <div>
                   <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
                     <FiDollarSign className="w-4 h-4 text-green-500" />
-                    <span>Advance / Old Gold</span>
+                    <span>Advance / Old Gold (₹)</span>
                   </label>
                   <input
                     type="number"
@@ -342,8 +375,25 @@ const PosPage = () => {
                     onChange={(e) =>
                       setAdvancePayment(parseFloat(e.target.value) || 0)
                     }
-                    placeholder="Enter advance amount"
+                    placeholder="Enter amount"
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-all duration-300"
+                  />
+                </div>
+
+                {/* *** NEW: Discount Field *** */}
+                <div>
+                  <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                    <FiPercent className="w-4 h-4 text-purple-500" />
+                    <span>Discount (₹)</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={discount}
+                    onChange={(e) =>
+                      setDiscount(parseFloat(e.target.value) || 0)
+                    }
+                    placeholder="Enter discount amount"
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all duration-300"
                   />
                 </div>
               </div>
@@ -354,6 +404,9 @@ const PosPage = () => {
           <Cart
             items={cartItems}
             advancePayment={advancePayment}
+            // *** Pass new props to Cart for display calculations ***
+            discount={discount}
+            // ******************************************************
             onIncrease={handleIncreaseQuantity}
             onDecrease={handleDecreaseQuantity}
             onRemove={handleRemoveItem}
@@ -379,6 +432,10 @@ const PosPage = () => {
           customerAddress={customerAddress}
           customerMobile={customerMobile}
           advancePayment={advancePayment}
+          // *** Pass NEW fields to InvoicePreview ***
+          discount={discount}
+          oldGoldWeight={oldGoldWeight}
+          // ****************************************
           onClose={() => setIsInvoiceModalOpen(false)}
           onConfirm={handleConfirmSale}
           isSaving={isSaving}

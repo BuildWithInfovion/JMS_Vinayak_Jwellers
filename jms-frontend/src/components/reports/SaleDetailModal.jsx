@@ -1,9 +1,19 @@
 // frontend/src/components/reports/SaleDetailModal.jsx
-import React from "react";
+import React, { useEffect } from "react"; // Added useEffect for logging
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
 const SaleDetailModal = ({ sale, onClose }) => {
+  // *** DEBUG LOG ***
+  useEffect(() => {
+    if (sale) {
+      console.log("Sale Data in Modal:", sale);
+      console.log("Discount:", sale.discount);
+      console.log("Old Gold Weight:", sale.oldGoldWeight);
+    }
+  }, [sale]);
+  // *****************
+
   if (!sale) return null;
 
   const formatDate = (dateString) => {
@@ -28,28 +38,32 @@ const SaleDetailModal = ({ sale, onClose }) => {
     const A4_HEIGHT = 297;
     const MARGIN = 15;
 
-    // ✅ Step 1: Add your custom design as background
     const designImage = new Image();
     designImage.src = "/Design.png";
 
     designImage.onload = () => {
       doc.addImage(designImage, "PNG", 0, 0, A4_WIDTH, A4_HEIGHT);
 
-      // ✅ Step 2: Overlay Invoice Number and Date
       doc.setFont("Helvetica", "bold");
       doc.setFontSize(11);
       doc.setTextColor(0, 0, 0);
       doc.text(`Invoice #: ${sale.invoiceNumber}`, 20, 50);
       doc.text(`Date: ${formatDate(sale.createdAt)}`, 150, 50);
 
-      // ✅ Step 3: Customer Details
       doc.setFont("Helvetica", "normal");
       doc.setFontSize(10);
       doc.text(`Name: ${sale.customerName || "N/A"}`, 20, 65);
       doc.text(`Mobile: ${sale.customerMobile || "N/A"}`, 20, 72);
       doc.text(`Address: ${sale.customerAddress || "N/A"}`, 20, 79);
 
-      // ✅ Step 4: Items Table
+      // *** FIX 1: Display Old Gold Weight in Header ***
+      if (sale.oldGoldWeight > 0) {
+        doc.setFont("Helvetica", "bold");
+        doc.setTextColor(184, 134, 11);
+        doc.text(`Old Gold Wt: ${sale.oldGoldWeight} g`, 150, 65);
+        doc.setTextColor(0, 0, 0);
+      }
+
       const tableColumn = [
         "Item (Qty)",
         "Purity",
@@ -110,38 +124,28 @@ const SaleDetailModal = ({ sale, onClose }) => {
         },
       });
 
-      // ✅ Step 5: Totals Section
       let finalY = doc.lastAutoTable.finalY + 15;
       const rightAlign = A4_WIDTH - MARGIN;
       const labelX = 130;
+      const lineHeight = 6;
 
       doc.setFont("Helvetica", "normal");
       doc.setFontSize(10);
 
-      // Subtotal
       doc.text("Subtotal:", labelX, finalY, { align: "right" });
       doc.text(`Rs.${(sale.subtotal || 0).toFixed(2)}`, rightAlign, finalY, {
         align: "right",
       });
+      finalY += lineHeight;
 
-      // ✅ REMOVED Total Making Charges line - MC/g is shown in table
-
-      // Line separator
-      finalY += 5;
-      doc.setLineWidth(0.5);
-      doc.line(labelX - 10, finalY, rightAlign, finalY);
-
-      // Total
-      finalY += 7;
       doc.setFont("Helvetica", "bold");
       doc.setFontSize(12);
       doc.text("Total:", labelX, finalY, { align: "right" });
       doc.text(`Rs.${(sale.totalAmount || 0).toFixed(2)}`, rightAlign, finalY, {
         align: "right",
       });
+      finalY += lineHeight;
 
-      // Advance Payment
-      finalY += 8;
       doc.setFont("Helvetica", "normal");
       doc.setFontSize(10);
       doc.setTextColor(0, 150, 0);
@@ -152,15 +156,26 @@ const SaleDetailModal = ({ sale, onClose }) => {
         finalY,
         { align: "right" }
       );
+      finalY += lineHeight;
 
-      // Line separator
-      finalY += 5;
+      // *** FIX 2: Display Discount ***
+      if (sale.discount > 0) {
+        doc.setTextColor(200, 0, 0);
+        doc.text("Discount:", labelX, finalY, { align: "right" });
+        doc.text(
+          `- Rs.${(sale.discount || 0).toFixed(2)}`,
+          rightAlign,
+          finalY,
+          { align: "right" }
+        );
+        finalY += lineHeight;
+      }
+
       doc.setTextColor(0, 0, 0);
       doc.setLineWidth(0.5);
       doc.line(labelX - 10, finalY, rightAlign, finalY);
+      finalY += lineHeight + 2;
 
-      // Balance Due
-      finalY += 7;
       doc.setFont("Helvetica", "bold");
       doc.setFontSize(14);
       doc.setTextColor(0, 0, 200);
@@ -171,14 +186,12 @@ const SaleDetailModal = ({ sale, onClose }) => {
 
       doc.setTextColor(0, 0, 0);
 
-      // ✅ Step 6: Save PDF
       const fileName = `${sale.customerName.replace(/ /g, "_")}-${
         sale.invoiceNumber
       }.pdf`;
       doc.save(fileName);
     };
 
-    // Trigger image load
     designImage.onerror = () => {
       alert(
         "Failed to load Design.png. Please check if the file exists in the public folder."
@@ -214,10 +227,16 @@ const SaleDetailModal = ({ sale, onClose }) => {
               <strong>Mobile:</strong> {sale.customerMobile || "N/A"}
             </span>
           </div>
-          <div className="flex">
+          <div className="flex justify-between mb-1">
             <span>
               <strong>Address (रा.):</strong> {sale.customerAddress || "N/A"}
             </span>
+            {/* *** FIX 3: Old Gold in Modal *** */}
+            {sale.oldGoldWeight > 0 && (
+              <span className="text-amber-700 font-medium">
+                <strong>Old Gold Wt:</strong> {sale.oldGoldWeight} g
+              </span>
+            )}
           </div>
         </div>
 
@@ -283,6 +302,14 @@ const SaleDetailModal = ({ sale, onClose }) => {
               <span>Advance (नगदी जमा):</span>
               <span>- ₹{(sale.advancePayment || 0).toFixed(2)}</span>
             </div>
+            {/* *** FIX 4: Discount in Modal *** */}
+            {sale.discount > 0 && (
+              <div className="flex justify-between py-1 text-purple-600 font-medium">
+                <span>Discount (सूट):</span>
+                <span>- ₹{(sale.discount || 0).toFixed(2)}</span>
+              </div>
+            )}
+
             <div className="flex justify-between py-2 border-t mt-2 font-bold text-xl text-blue-600">
               <span>Total Bill (एकूण बिल):</span>
               <span>₹{(sale.balanceDue || 0).toFixed(2)}</span>
@@ -291,7 +318,6 @@ const SaleDetailModal = ({ sale, onClose }) => {
         </div>
       </div>
 
-      {/* Action Buttons */}
       <div className="mt-8 flex justify-end space-x-3">
         <button
           onClick={onClose}
