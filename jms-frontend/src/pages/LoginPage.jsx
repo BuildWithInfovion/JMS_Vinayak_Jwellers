@@ -2,7 +2,9 @@
 import React, { useState } from "react";
 import { useAuth } from "../context/useAuth";
 import { useNavigate } from "react-router-dom";
-// NEW: Added FaEnvelope (for username) and FaKey (for token)
+// NEW: Import the Site Config
+import { siteConfig } from "../utils/siteConfig";
+
 import {
   FaUser,
   FaLock,
@@ -12,8 +14,6 @@ import {
   FaKey,
 } from "react-icons/fa";
 import buildwithinfovionLogo from "../assets/buildwithinfovion-logo.svg";
-
-// NEW: Import toast for notifications and new API functions
 import { toast } from "react-toastify";
 import { forgotPassword, resetPassword } from "../services/api";
 
@@ -91,14 +91,11 @@ const LoginPage = () => {
     setIsLoading(true);
 
     try {
-      // Use AuthContext's login method which returns true on success
       const success = await auth.login(username, password);
-
       if (success) {
         toast.success("Login successful. Redirecting...");
-        navigate("/"); // or "/dashboard" if you prefer
+        navigate("/");
       } else {
-        // auth.login already logged out and returned false on failure
         toast.error("Invalid username or password.");
       }
     } catch (err) {
@@ -118,13 +115,10 @@ const LoginPage = () => {
       toast.info(
         "If this username exists, a token has been generated. Check server logs (Dev Only)."
       );
-
-      // Auto-fill token in dev mode for easier testing
       if (data?.dev_token) {
         setResetToken(data.dev_token);
       }
-
-      setView("reset"); // Move to the token entry view
+      setView("reset");
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to initiate reset.");
     } finally {
@@ -151,12 +145,11 @@ const LoginPage = () => {
     try {
       await resetPassword(resetToken, newPassword);
       toast.success("Password successfully reset! Please log in now.");
-      // Reset state and go back to login
       setView("login");
       setResetToken("");
       setNewPassword("");
       setConfirmPassword("");
-      setUsername(resetUsername); // Pre-fill username for convenience
+      setUsername(resetUsername);
       setResetUsername("");
     } catch (err) {
       toast.error(
@@ -171,7 +164,6 @@ const LoginPage = () => {
   // --- RENDER FUNCTION for Login Form ---
   const renderLoginForm = () => (
     <form className="space-y-6" onSubmit={handleLogin}>
-      {/* Username Input */}
       <div className="relative group">
         <label htmlFor="username" className="sr-only">
           Username
@@ -191,7 +183,6 @@ const LoginPage = () => {
         />
       </div>
 
-      {/* Password Input */}
       <div className="relative group">
         <label htmlFor="password" className="sr-only">
           Password
@@ -223,7 +214,6 @@ const LoginPage = () => {
         </button>
       </div>
 
-      {/* Submit Button */}
       <GradientButton
         type="submit"
         loading={isLoading}
@@ -233,7 +223,6 @@ const LoginPage = () => {
         Log In
       </GradientButton>
 
-      {/* Forgot Password Link */}
       <button
         type="button"
         onClick={() => setView("forgot")}
@@ -250,7 +239,6 @@ const LoginPage = () => {
       <p className="text-sm text-gray-300 text-center">
         Enter your username to request a password reset token.
       </p>
-      {/* Username Input */}
       <div className="relative group">
         <label htmlFor="reset-username" className="sr-only">
           Username
@@ -270,7 +258,6 @@ const LoginPage = () => {
         />
       </div>
 
-      {/* Submit Button */}
       <GradientButton
         type="submit"
         loading={isLoading}
@@ -280,7 +267,6 @@ const LoginPage = () => {
         Request Reset
       </GradientButton>
 
-      {/* Back to Login Link */}
       <button
         type="button"
         onClick={() => setView("login")}
@@ -297,7 +283,6 @@ const LoginPage = () => {
       <p className="text-sm text-gray-300 text-center">
         Check the server log for your token, then set a new password.
       </p>
-      {/* Token Input */}
       <div className="relative group">
         <label htmlFor="token" className="sr-only">
           Reset Token
@@ -317,7 +302,6 @@ const LoginPage = () => {
         />
       </div>
 
-      {/* New Password Input */}
       <div className="relative group">
         <label htmlFor="new-password" className="sr-only">
           New Password
@@ -337,7 +321,6 @@ const LoginPage = () => {
         />
       </div>
 
-      {/* Confirm Password Input */}
       <div className="relative group">
         <label htmlFor="confirm-password" className="sr-only">
           Confirm New Password
@@ -357,7 +340,6 @@ const LoginPage = () => {
         />
       </div>
 
-      {/* Submit Button */}
       <GradientButton
         type="submit"
         loading={isLoading}
@@ -367,7 +349,6 @@ const LoginPage = () => {
         Set New Password
       </GradientButton>
 
-      {/* Back to Login Link */}
       <button
         type="button"
         onClick={() => setView("login")}
@@ -393,21 +374,18 @@ const LoginPage = () => {
 
   return (
     <div className="relative flex items-center justify-center min-h-screen overflow-hidden bg-gradient-to-br from-gray-900 via-slate-800 to-gray-900">
-      {/* Decorative Background Elements */}
       <div className="absolute top-20 left-20 w-72 h-72 bg-amber-500/10 rounded-full blur-3xl"></div>
       <div className="absolute bottom-20 right-20 w-96 h-96 bg-teal-500/10 rounded-full blur-3xl"></div>
       <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-purple-500/5 rounded-full blur-3xl"></div>
 
-      {/* Login Card */}
       <div className="relative w-full max-w-md mx-4">
-        {/* Glassmorphism Card */}
         <div className="relative bg-white/5 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/10 p-8 space-y-8">
-          {/* Floating VJ Logo - WITH ACTUAL LOGO */}
+          {/* Floating VJ Logo */}
           <div className="absolute -top-16 left-1/2 transform -translate-x-1/2">
             <div className="w-28 h-28 bg-white backdrop-blur-lg rounded-2xl shadow-2xl border-4 border-amber-400/30 p-3 overflow-hidden">
               <img
                 src="/VJ.png"
-                alt="Vinayak Jewellers"
+                alt="Logo"
                 className="w-full h-full object-contain"
               />
             </div>
@@ -415,13 +393,14 @@ const LoginPage = () => {
 
           {/* Header */}
           <div className="text-center pt-12">
+            {/* --- DYNAMIC SHOP NAME --- */}
             <h1 className="text-4xl font-bold bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 bg-clip-text text-transparent mb-2">
-              Vinayak Jewellers
+              {siteConfig.shopName}
             </h1>
+            {/* --- DYNAMIC ADDRESS --- */}
             <p className="text-sm text-gray-300 font-medium tracking-wide">
-              विनायक ज्वेलर्स, गंगाखेड
+              {siteConfig.shopAddress}
             </p>
-            {/* DYNAMIC SUBTITLE */}
             <p className="text-xs text-gray-400 mt-2">
               {view === "login" && "Owner Portal Login"}
               {view === "forgot" && "Request Password Reset"}
@@ -429,15 +408,14 @@ const LoginPage = () => {
             </p>
           </div>
 
-          {/* Form Area - NOW DYNAMIC */}
+          {/* Form Area */}
           {renderView()}
 
-          {/* Footer - BuildwithInfovion Branding WITH LOGO */}
+          {/* Footer - BuildwithInfovion Branding */}
           <div className="pt-6 border-t border-white/10">
             <div className="text-center">
               <p className="text-xs text-gray-500 mb-2">Powered by</p>
               <div className="flex items-center justify-center space-x-2.5">
-                {/* Company Logo - Your SVG Logo */}
                 <div className="w-7 h-7 bg-white rounded-lg flex items-center justify-center shadow-md p-1 border border-gray-200/20">
                   <img
                     src={buildwithinfovionLogo}
