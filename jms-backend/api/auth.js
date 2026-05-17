@@ -8,8 +8,14 @@ const auth = require("../middleware/authMiddleware");
 
 // @route   POST /api/auth/register
 // @desc    Register a new user (owner or staff)
-// @access  Public
-router.post("/register", async (req, res) => {
+// @access  Private — owner only
+router.post("/register", auth, async (req, res) => {
+  if (req.user.role !== "owner") {
+    return res
+      .status(403)
+      .json({ message: "Only owners can create new accounts." });
+  }
+
   const { username, password, role } = req.body;
 
   if (!username || !password || !role) {
@@ -24,13 +30,8 @@ router.post("/register", async (req, res) => {
       return res.status(400).json({ message: "User already exists." });
     }
 
-    user = new User({
-      username,
-      password,
-      role,
-    });
+    user = new User({ username, password, role });
 
-    // Hash password
     const salt = await bcrypt.genSalt(10);
     user.password = await bcrypt.hash(password, salt);
 
