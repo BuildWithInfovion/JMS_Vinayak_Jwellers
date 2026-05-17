@@ -1,6 +1,29 @@
 import React from "react";
-import { FaTimes, FaPrint, FaCheckCircle } from "react-icons/fa";
+import { FaTimes, FaPrint, FaCheckCircle, FaWhatsapp } from "react-icons/fa";
 import { siteConfig } from "../../utils/siteConfig";
+
+const buildWhatsAppMessage = ({ invoiceNumber, items, customerName, itemsSubtotal, totalMakingCharges, cgstAmount, sgstAmount, grandTotal, advancePayment, discount, balanceDue, applyGst }) => {
+  const date = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const name = customerName || "Customer";
+
+  const itemLines = items.map((item) => {
+    const wt = (item.sellingWeight || 0) * item.quantity;
+    const amt = (wt * (item.sellingPricePerGram || 0)) + (wt * (item.makingChargePerGram || 0));
+    return `• ${item.name}${item.quantity > 1 ? ` ×${item.quantity}` : ""} (${wt.toFixed(3)}g) — ₹${amt.toFixed(2)}`;
+  }).join("\n");
+
+  let msg = `*${siteConfig.shopName}*\nInvoice #${invoiceNumber} | ${date}\n\nDear ${name},\nThank you for your purchase!\n\n*Items:*\n${itemLines}\n\n`;
+  msg += `Metal Value: ₹${itemsSubtotal.toFixed(2)}\nMaking Charges: ₹${totalMakingCharges.toFixed(2)}\n`;
+  if (applyGst) {
+    msg += `CGST: ₹${cgstAmount.toFixed(2)}\nSGST: ₹${sgstAmount.toFixed(2)}\n`;
+  }
+  msg += `*Total: ₹${grandTotal.toFixed(2)}*\n`;
+  if ((advancePayment || 0) > 0) msg += `Advance Paid: — ₹${(advancePayment || 0).toFixed(2)}\n`;
+  if ((discount || 0) > 0) msg += `Discount: — ₹${(discount || 0).toFixed(2)}\n`;
+  msg += `*Balance Due: ₹${balanceDue.toFixed(2)}*\n\n`;
+  msg += `Goods once sold will not be exchanged.\n${siteConfig.shopAddress}`;
+  return msg;
+};
 
 const InvoicePreview = ({
   items,
@@ -61,6 +84,26 @@ const InvoicePreview = ({
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleWhatsApp = () => {
+    const mobile = (customerMobile || "").replace(/\D/g, "");
+    const waNumber = mobile.startsWith("91") ? mobile : `91${mobile}`;
+    const text = buildWhatsAppMessage({
+      invoiceNumber: confirmedSaleData?.invoiceNumber,
+      items,
+      customerName,
+      itemsSubtotal,
+      totalMakingCharges,
+      cgstAmount,
+      sgstAmount,
+      grandTotal,
+      advancePayment,
+      discount,
+      balanceDue,
+      applyGst,
+    });
+    window.open(`https://wa.me/${waNumber}?text=${encodeURIComponent(text)}`, "_blank");
   };
 
   const invoiceDate = new Date().toLocaleDateString("en-IN", {
@@ -227,11 +270,36 @@ const InvoicePreview = ({
           </div>
         </div>
 
+        {/* ── Signature Lines ── */}
+        <div className="mt-12 grid grid-cols-2 gap-8 text-sm">
+          <div className="text-center">
+            <div className="border-t border-gray-400 pt-2 mt-8">
+              <p className="font-medium text-gray-700">Customer Signature</p>
+              <p className="text-xs text-gray-500 mt-0.5">{customerName || ""}</p>
+            </div>
+          </div>
+          <div className="text-center">
+            <div className="border-t border-gray-400 pt-2 mt-8">
+              <p className="font-medium text-gray-700">Authorized Signatory</p>
+              <p className="text-xs text-gray-500 mt-0.5">{siteConfig.shopName}</p>
+            </div>
+          </div>
+        </div>
+
         {/* ── Footer ── */}
-        <div className="mt-10 pt-5 border-t border-gray-200 text-center text-xs text-gray-500 space-y-1">
-          <p className="font-medium text-gray-700">Thank you for your business! आपल्या विश्वासाबद्दल धन्यवाद.</p>
-          <p>Goods once sold will not be taken back or exchanged.</p>
-          <p>{siteConfig.shopAddress}</p>
+        <div className="mt-8 pt-5 border-t border-gray-200 text-xs text-gray-500">
+          <div className="flex justify-between items-end">
+            <div className="space-y-1">
+              <p className="font-medium text-gray-700">Thank you for your business! आपल्या विश्वासाबद्दल धन्यवाद.</p>
+              <p>Goods once sold will not be taken back or exchanged.</p>
+              <p>{siteConfig.shopAddress}</p>
+            </div>
+            <div className="flex-shrink-0 ml-4 text-right">
+              <span className="inline-block border-2 border-gray-400 text-gray-500 font-bold text-xs px-3 py-1 rounded tracking-widest uppercase">
+                Customer Copy
+              </span>
+            </div>
+          </div>
         </div>
       </div>
       {/* ═══════════════════════════════════════════════ */}
@@ -251,14 +319,25 @@ const InvoicePreview = ({
 
         <div className="flex gap-3">
           {isConfirmed ? (
-            /* After confirmation: just a Done button */
-            <button
-              onClick={onDone}
-              className="flex items-center gap-2 bg-green-600 text-white px-6 py-2.5 rounded-lg hover:bg-green-700 transition-colors font-semibold"
-            >
-              <FaCheckCircle className="w-4 h-4" />
-              Done
-            </button>
+            /* After confirmation: WhatsApp + Done */
+            <>
+              {customerMobile && (
+                <button
+                  onClick={handleWhatsApp}
+                  className="flex items-center gap-2 bg-green-500 text-white px-5 py-2.5 rounded-lg hover:bg-green-600 transition-colors font-medium"
+                >
+                  <FaWhatsapp className="w-4 h-4" />
+                  Share on WhatsApp
+                </button>
+              )}
+              <button
+                onClick={onDone}
+                className="flex items-center gap-2 bg-blue-600 text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+              >
+                <FaCheckCircle className="w-4 h-4" />
+                Done
+              </button>
+            </>
           ) : (
             /* Before confirmation: Cancel + Confirm Sale */
             <>

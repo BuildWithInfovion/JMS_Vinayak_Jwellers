@@ -1,6 +1,6 @@
 // frontend/src/pages/ReportsPage.jsx
 import React, { useState, useEffect, useMemo } from "react";
-import { getSales } from "../services/api";
+import { getSales, getSettings } from "../services/api";
 import Modal from "../components/common/Modal";
 import SaleDetailModal from "../components/reports/SaleDetailModal";
 import jsPDF from "jspdf";
@@ -23,6 +23,7 @@ const ReportsPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [gstNumber, setGstNumber] = useState("");
 
   useEffect(() => {
     const fetchSales = async () => {
@@ -37,6 +38,9 @@ const ReportsPage = () => {
       }
     };
     fetchSales();
+    getSettings()
+      .then((res) => setGstNumber(res.data.gst_number || ""))
+      .catch(() => {});
   }, []);
 
   const filteredSales = useMemo(() => {
@@ -455,10 +459,10 @@ const ReportsPage = () => {
       <Modal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
-        title={`Invoice Details: #${selectedSale?.invoiceNumber}`}
-        maxWidth="max-w-2xl"
+        title={`Invoice #${selectedSale?.invoiceNumber} — ${selectedSale?.customerName || "Walk-in Customer"}`}
+        maxWidth="max-w-3xl"
       >
-        <SaleDetailModal sale={selectedSale} onClose={handleCloseModal} />
+        <SaleDetailModal sale={selectedSale} onClose={handleCloseModal} gstNumber={gstNumber} />
       </Modal>
     </div>
   );

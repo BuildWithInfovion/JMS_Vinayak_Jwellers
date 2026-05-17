@@ -1,336 +1,390 @@
-// frontend/src/components/reports/SaleDetailModal.jsx
-import React, { useEffect } from "react"; // Added useEffect for logging
+import React from "react";
+import { FaPrint, FaWhatsapp } from "react-icons/fa";
+import { FiDownload, FiX } from "react-icons/fi";
+import { siteConfig } from "../../utils/siteConfig";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-const SaleDetailModal = ({ sale, onClose }) => {
-  // *** DEBUG LOG ***
-  useEffect(() => {
-    if (sale) {
-      console.log("Sale Data in Modal:", sale);
-      console.log("Discount:", sale.discount);
-      console.log("Old Gold Weight:", sale.oldGoldWeight);
-    }
-  }, [sale]);
-  // *****************
+// Build WhatsApp message from a saved sale record
+const buildWhatsAppMessage = (sale) => {
+  const date = new Date(sale.createdAt).toLocaleDateString("en-IN", {
+    day: "2-digit", month: "2-digit", year: "numeric",
+  });
+  const name = sale.customerName || "Customer";
 
+  const itemLines = sale.items.map((item) => {
+    const wt = (item.sellingWeight || 0) * item.quantity;
+    const amt = (wt * (item.sellingPricePerGram || 0)) + (wt * (item.makingChargePerGram || 0));
+    return `• ${item.name}${item.quantity > 1 ? ` ×${item.quantity}` : ""} (${wt.toFixed(3)}g) — ₹${amt.toFixed(2)}`;
+  }).join("\n");
+
+  const hasGst = (sale.gstAmount || 0) > 0;
+
+  let msg = `*${siteConfig.shopName}*\nInvoice #${sale.invoiceNumber} | ${date}\n\nDear ${name},\nThank you for your purchase!\n\n*Items:*\n${itemLines}\n\n`;
+  msg += `Metal Value: ₹${(sale.subtotal || 0).toFixed(2)}\nMaking Charges: ₹${(sale.totalMakingCharges || 0).toFixed(2)}\n`;
+  if (hasGst) {
+    msg += `CGST: ₹${(sale.cgstAmount || 0).toFixed(2)}\nSGST: ₹${(sale.sgstAmount || 0).toFixed(2)}\n`;
+  }
+  msg += `*Total: ₹${(sale.totalAmount || 0).toFixed(2)}*\n`;
+  if ((sale.advancePayment || 0) > 0) msg += `Advance Paid: — ₹${sale.advancePayment.toFixed(2)}\n`;
+  if ((sale.discount || 0) > 0) msg += `Discount: — ₹${sale.discount.toFixed(2)}\n`;
+  msg += `*Balance Due: ₹${(sale.balanceDue || 0).toFixed(2)}*\n\n`;
+  msg += `Goods once sold will not be exchanged.\n${siteConfig.shopAddress}`;
+  return msg;
+};
+
+const SaleDetailModal = ({ sale, onClose, gstNumber }) => {
   if (!sale) return null;
 
-  const formatDate = (dateString) => {
-    if (!dateString) return "N/A";
-    return new Date(dateString).toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
+  const invoiceDate = new Date(sale.createdAt).toLocaleDateString("en-IN", {
+    day: "2-digit", month: "2-digit", year: "numeric",
+  });
+
+  const hasGst = (sale.gstAmount || 0) > 0;
+  const displayGstNumber = gstNumber || siteConfig.gstNumber;
+
+  // Recompute item line totals from stored data
+  const getLineTotal = (item) => {
+    const wt = (item.sellingWeight || 0) * item.quantity;
+    return (wt * (item.sellingPricePerGram || 0)) + (wt * (item.makingChargePerGram || 0));
   };
 
-  const generateSalePDF = () => {
-    if (!sale) return;
+  const handlePrint = () => window.print();
 
-    const doc = new jsPDF({
-      orientation: "portrait",
-      unit: "mm",
-      format: "a4",
+  const handleWhatsApp = () => {
+    const mobile = (sale.customerMobile || "").replace(/\D/g, "");
+    const waNumber = mobile.startsWith("91") ? mobile : `91${mobile}`;
+    const text = buildWhatsAppMessage(sale);
+    window.open(`https://wa.me/${waNumber}?text=${encodeURIComponent(text)}`, "_blank");
+  };
+
+  const handleDownloadPDF = () => {
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const MARGIN = 15;
+    const PAGE_W = 210;
+
+    // Header
+    doc.setFont("Helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text(siteConfig.shopName, PAGE_W / 2, 20, { align: "center" });
+    doc.setFont("Helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text("सोने चांदीचे व्यापारी", PAGE_W / 2, 26, { align: "center" });
+    doc.text(`${siteConfig.ownerName} | Mo: ${siteConfig.ownerMobile}`, PAGE_W / 2, 31, { align: "center" });
+    doc.text(siteConfig.shopAddress, PAGE_W / 2, 36, { align: "center" });
+    if (hasGst && displayGstNumber) {
+      doc.setFont("Helvetica", "bold");
+      doc.text(`GSTIN: ${displayGstNumber}`, PAGE_W / 2, 41, { align: "center" });
+    }
+
+    // Divider
+    doc.setLineWidth(0.5);
+    doc.line(MARGIN, 44, PAGE_W - MARGIN, 44);
+
+    // Invoice title
+    doc.setFont("Helvetica", "bold");
+    doc.setFontSize(11);
+    doc.text("TAX INVOICE", PAGE_W / 2, 51, { align: "center" });
+
+    // Customer + Invoice details
+    doc.setFont("Helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text(`Invoice #: ${sale.invoiceNumber}`, MARGIN, 59);
+    doc.text(`Date: ${invoiceDate}`, PAGE_W - MARGIN, 59, { align: "right" });
+    doc.text(`Name: ${sale.customerName || "Walk-in Customer"}`, MARGIN, 65);
+    doc.text(`Mobile: ${sale.customerMobile || "—"}`, PAGE_W - MARGIN, 65, { align: "right" });
+    if (sale.customerAddress) {
+      doc.text(`Address: ${sale.customerAddress}`, MARGIN, 71);
+    }
+    if ((sale.oldGoldWeight || 0) > 0) {
+      doc.setTextColor(180, 100, 0);
+      doc.text(`Old Gold: ${sale.oldGoldWeight}g`, PAGE_W - MARGIN, 71, { align: "right" });
+      doc.setTextColor(0, 0, 0);
+    }
+
+    // Items table
+    const tableRows = sale.items.map((item, idx) => {
+      const wt = (item.sellingWeight || 0) * item.quantity;
+      const lineTotal = getLineTotal(item);
+      return [
+        idx + 1,
+        item.quantity > 1 ? `${item.name} ×${item.quantity}` : item.name,
+        item.sellingPurity || "—",
+        wt.toFixed(3),
+        `₹${(item.sellingPricePerGram || 0).toFixed(2)}`,
+        `₹${(item.makingChargePerGram || 0).toFixed(2)}`,
+        `₹${lineTotal.toFixed(2)}`,
+      ];
     });
 
-    const A4_WIDTH = 210;
-    const A4_HEIGHT = 297;
-    const MARGIN = 15;
+    autoTable(doc, {
+      head: [["Sr.", "Item", "Purity", "Wt(g)", "Rate/g", "MC/g", "Amount"]],
+      body: tableRows,
+      startY: 77,
+      margin: { left: MARGIN, right: MARGIN },
+      theme: "grid",
+      headStyles: { fillColor: [50, 50, 50], fontSize: 8, fontStyle: "bold" },
+      bodyStyles: { fontSize: 8 },
+      columnStyles: {
+        0: { cellWidth: 8, halign: "center" },
+        2: { cellWidth: 16, halign: "center" },
+        3: { cellWidth: 18, halign: "right" },
+        4: { cellWidth: 22, halign: "right" },
+        5: { cellWidth: 18, halign: "right" },
+        6: { cellWidth: 24, halign: "right", fontStyle: "bold" },
+      },
+    });
 
-    const designImage = new Image();
-    designImage.src = "/Design.png";
+    // Totals
+    let y = doc.lastAutoTable.finalY + 6;
+    const lx = 145;
+    const rx = PAGE_W - MARGIN;
+    const lh = 5.5;
 
-    designImage.onload = () => {
-      doc.addImage(designImage, "PNG", 0, 0, A4_WIDTH, A4_HEIGHT);
-
-      doc.setFont("Helvetica", "bold");
-      doc.setFontSize(11);
-      doc.setTextColor(0, 0, 0);
-      doc.text(`Invoice #: ${sale.invoiceNumber}`, 20, 50);
-      doc.text(`Date: ${formatDate(sale.createdAt)}`, 150, 50);
-
-      doc.setFont("Helvetica", "normal");
-      doc.setFontSize(10);
-      doc.text(`Name: ${sale.customerName || "N/A"}`, 20, 65);
-      doc.text(`Mobile: ${sale.customerMobile || "N/A"}`, 20, 72);
-      doc.text(`Address: ${sale.customerAddress || "N/A"}`, 20, 79);
-
-      // *** FIX 1: Display Old Gold Weight in Header ***
-      if (sale.oldGoldWeight > 0) {
-        doc.setFont("Helvetica", "bold");
-        doc.setTextColor(184, 134, 11);
-        doc.text(`Old Gold Wt: ${sale.oldGoldWeight} g`, 150, 65);
-        doc.setTextColor(0, 0, 0);
-      }
-
-      const tableColumn = [
-        "Item (Qty)",
-        "Purity",
-        "Wt(g)",
-        "Rate/g",
-        "MC/g",
-        "Amount",
-      ];
-      const tableRows = [];
-
-      sale.items.forEach((item) => {
-        const itemWeight = item.sellingWeight || 0;
-        const itemPricePerGram = item.sellingPricePerGram || 0;
-        const itemMakingChargePerGram = item.makingChargePerGram || 0;
-        const lineTotal =
-          (itemWeight * itemPricePerGram +
-            itemWeight * itemMakingChargePerGram) *
-          item.quantity;
-
-        tableRows.push([
-          `${item.name} (Qty: ${item.quantity})`,
-          item.sellingPurity || "N/A",
-          itemWeight.toFixed(3),
-          `Rs.${itemPricePerGram.toFixed(2)}`,
-          `Rs.${itemMakingChargePerGram.toFixed(2)}`,
-          `Rs.${lineTotal.toFixed(2)}`,
-        ]);
-      });
-
-      autoTable(doc, {
-        head: [tableColumn],
-        body: tableRows,
-        startY: 90,
-        margin: { left: MARGIN, right: MARGIN },
-        theme: "grid",
-        headStyles: {
-          font: "Helvetica",
-          fontSize: 9,
-          fillColor: [255, 255, 255],
-          textColor: [0, 0, 0],
-          lineWidth: 0.1,
-        },
-        bodyStyles: {
-          font: "Helvetica",
-          fontSize: 8,
-          fillColor: [255, 255, 255],
-        },
-        alternateRowStyles: {
-          fillColor: [245, 245, 245],
-        },
-        columnStyles: {
-          0: { cellWidth: 45 },
-          1: { cellWidth: 20, halign: "center" },
-          2: { cellWidth: 25, halign: "right" },
-          3: { cellWidth: 30, halign: "right" },
-          4: { cellWidth: 25, halign: "right" },
-          5: { cellWidth: 35, halign: "right", fontStyle: "bold" },
-        },
-      });
-
-      let finalY = doc.lastAutoTable.finalY + 15;
-      const rightAlign = A4_WIDTH - MARGIN;
-      const labelX = 130;
-      const lineHeight = 6;
-
-      doc.setFont("Helvetica", "normal");
-      doc.setFontSize(10);
-
-      doc.text("Subtotal:", labelX, finalY, { align: "right" });
-      doc.text(`Rs.${(sale.subtotal || 0).toFixed(2)}`, rightAlign, finalY, {
-        align: "right",
-      });
-      finalY += lineHeight;
-
-      doc.setFont("Helvetica", "bold");
-      doc.setFontSize(12);
-      doc.text("Total:", labelX, finalY, { align: "right" });
-      doc.text(`Rs.${(sale.totalAmount || 0).toFixed(2)}`, rightAlign, finalY, {
-        align: "right",
-      });
-      finalY += lineHeight;
-
-      doc.setFont("Helvetica", "normal");
-      doc.setFontSize(10);
-      doc.setTextColor(0, 150, 0);
-      doc.text("Advance:", labelX, finalY, { align: "right" });
-      doc.text(
-        `- Rs.${(sale.advancePayment || 0).toFixed(2)}`,
-        rightAlign,
-        finalY,
-        { align: "right" }
-      );
-      finalY += lineHeight;
-
-      // *** FIX 2: Display Discount ***
-      if (sale.discount > 0) {
-        doc.setTextColor(200, 0, 0);
-        doc.text("Discount:", labelX, finalY, { align: "right" });
-        doc.text(
-          `- Rs.${(sale.discount || 0).toFixed(2)}`,
-          rightAlign,
-          finalY,
-          { align: "right" }
-        );
-        finalY += lineHeight;
-      }
-
-      doc.setTextColor(0, 0, 0);
-      doc.setLineWidth(0.5);
-      doc.line(labelX - 10, finalY, rightAlign, finalY);
-      finalY += lineHeight + 2;
-
-      doc.setFont("Helvetica", "bold");
-      doc.setFontSize(14);
-      doc.setTextColor(0, 0, 200);
-      doc.text("Total Bill:", labelX, finalY, { align: "right" });
-      doc.text(`Rs.${(sale.balanceDue || 0).toFixed(2)}`, rightAlign, finalY, {
-        align: "right",
-      });
-
-      doc.setTextColor(0, 0, 0);
-
-      const fileName = `${sale.customerName.replace(/ /g, "_")}-${
-        sale.invoiceNumber
-      }.pdf`;
-      doc.save(fileName);
+    const addRow = (label, value, bold = false, color = [0, 0, 0]) => {
+      doc.setFont("Helvetica", bold ? "bold" : "normal");
+      doc.setFontSize(bold ? 10 : 9);
+      doc.setTextColor(...color);
+      doc.text(label, lx, y, { align: "right" });
+      doc.text(value, rx, y, { align: "right" });
+      y += lh;
     };
 
-    designImage.onerror = () => {
-      alert(
-        "Failed to load Design.png. Please check if the file exists in the public folder."
-      );
-    };
+    doc.setTextColor(0, 0, 0);
+    addRow("Metal Value:", `₹${(sale.subtotal || 0).toFixed(2)}`);
+    addRow("Making Charges:", `₹${(sale.totalMakingCharges || 0).toFixed(2)}`);
+    if (hasGst) {
+      addRow("CGST:", `₹${(sale.cgstAmount || 0).toFixed(2)}`);
+      addRow("SGST:", `₹${(sale.sgstAmount || 0).toFixed(2)}`);
+    }
+    doc.setLineWidth(0.3);
+    doc.line(lx - 10, y - 1, rx, y - 1);
+    addRow("Total (एकूण):", `₹${(sale.totalAmount || 0).toFixed(2)}`, true);
+    if ((sale.advancePayment || 0) > 0) addRow("Advance:", `— ₹${sale.advancePayment.toFixed(2)}`, false, [0, 120, 0]);
+    if ((sale.discount || 0) > 0) addRow("Discount:", `— ₹${sale.discount.toFixed(2)}`, false, [120, 0, 120]);
+    doc.setLineWidth(0.5);
+    doc.line(lx - 10, y - 1, rx, y - 1);
+    addRow("Balance Due:", `₹${(sale.balanceDue || 0).toFixed(2)}`, true, [0, 0, 180]);
+
+    // Signature lines
+    y += 12;
+    doc.setTextColor(0, 0, 0);
+    doc.setFont("Helvetica", "normal");
+    doc.setFontSize(9);
+    doc.line(MARGIN, y, MARGIN + 60, y);
+    doc.line(PAGE_W - MARGIN - 60, y, PAGE_W - MARGIN, y);
+    y += 4;
+    doc.text("Customer Signature", MARGIN + 30, y, { align: "center" });
+    doc.text("Authorized Signatory", PAGE_W - MARGIN - 30, y, { align: "center" });
+
+    // Footer
+    y += 10;
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    doc.text("Thank you for your business! Goods once sold will not be taken back or exchanged.", PAGE_W / 2, y, { align: "center" });
+    doc.text(siteConfig.shopAddress, PAGE_W / 2, y + 4, { align: "center" });
+
+    const fileName = `Invoice_${sale.invoiceNumber}_${(sale.customerName || "Customer").replace(/\s+/g, "_")}.pdf`;
+    doc.save(fileName);
   };
 
   return (
-    <div className="text-gray-800">
-      <div id="invoice-content-modal">
-        <div className="text-center mb-8">
-          <img src="/VJ.png" alt="Logo" className="h-16 w-auto mx-auto mb-3" />
-          <h2 className="text-2xl font-bold">विनायक ज्वेलर्स, गंगाखेड</h2>
-          <p className="text-sm">सोने चांदीचे व्यापारी</p>
-          <p className="text-sm">Prop. Vinayak D. Didshere</p>
-          <p className="text-sm">Mo. 9421462257</p>
+    <div className="text-gray-900">
+
+      {/* ══════════════════════════════════════════ */}
+      {/* PRINTABLE INVOICE AREA                    */}
+      {/* ══════════════════════════════════════════ */}
+      <div id="invoice-content-printable" className="p-2">
+
+        {/* Shop Header */}
+        <div className="text-center mb-5 pb-4 border-b-2 border-gray-300">
+          <img src="/VJ.png" alt="Logo" className="h-14 w-auto mx-auto mb-2" />
+          <h1 className="text-xl font-extrabold text-gray-900">{siteConfig.shopName}</h1>
+          <p className="text-sm text-gray-500">सोने चांदीचे व्यापारी</p>
+          <p className="text-xs text-gray-600 mt-0.5">
+            {siteConfig.ownerName} &nbsp;|&nbsp; Mo: {siteConfig.ownerMobile}
+          </p>
+          <p className="text-xs text-gray-500">{siteConfig.shopAddress}</p>
+          {hasGst && displayGstNumber && (
+            <p className="text-xs font-bold text-gray-800 mt-0.5 tracking-widest">GSTIN: {displayGstNumber}</p>
+          )}
         </div>
 
-        <div className="border-t border-b py-2 mb-6 text-sm">
-          <div className="flex justify-between mb-1">
-            <span>
-              <strong>Invoice #:</strong> {sale.invoiceNumber || "N/A"}
-            </span>
-            <span>
-              <strong>Date:</strong> {formatDate(sale.createdAt)}
-            </span>
+        {/* Invoice Title */}
+        <div className="text-center mb-4">
+          <span className="text-base font-bold uppercase tracking-widest text-gray-700 border-b-2 border-gray-700 pb-0.5">
+            Tax Invoice
+          </span>
+        </div>
+
+        {/* Customer + Invoice Details */}
+        <div className="grid grid-cols-2 gap-4 mb-5 text-sm">
+          <div>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Billed To</p>
+            <p className="font-semibold text-gray-900">{sale.customerName || "Walk-in Customer"}</p>
+            {sale.customerAddress && <p className="text-gray-600">{sale.customerAddress}</p>}
+            <p className="text-gray-600">Mo: {sale.customerMobile || "—"}</p>
           </div>
-          <div className="flex justify-between mb-1">
-            <span>
-              <strong>Name (श्री./सौ.):</strong> {sale.customerName || "N/A"}
-            </span>
-            <span>
-              <strong>Mobile:</strong> {sale.customerMobile || "N/A"}
-            </span>
-          </div>
-          <div className="flex justify-between mb-1">
-            <span>
-              <strong>Address (रा.):</strong> {sale.customerAddress || "N/A"}
-            </span>
-            {/* *** FIX 3: Old Gold in Modal *** */}
-            {sale.oldGoldWeight > 0 && (
-              <span className="text-amber-700 font-medium">
-                <strong>Old Gold Wt:</strong> {sale.oldGoldWeight} g
-              </span>
+          <div className="text-right">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Invoice Details</p>
+            <p className="font-bold text-gray-900">
+              Invoice #: <span className="text-blue-700">{sale.invoiceNumber}</span>
+            </p>
+            <p className="text-gray-600">Date: <span className="font-medium text-gray-800">{invoiceDate}</span></p>
+            {(sale.oldGoldWeight || 0) > 0 && (
+              <p className="text-amber-700 font-medium mt-1">Old Gold: {sale.oldGoldWeight}g</p>
             )}
           </div>
         </div>
 
-        <table className="w-full mb-6 text-sm">
+        {/* Items Table */}
+        <table className="w-full mb-5 text-sm border-collapse">
           <thead>
-            <tr className="border-b bg-gray-50">
-              <th className="text-left p-2 font-medium">Item (Qty)</th>
-              <th className="text-center p-2 font-medium">Purity</th>
-              <th className="text-right p-2 font-medium">Weight (g)</th>
-              <th className="text-right p-2 font-medium">Rate/g</th>
-              <th className="text-right p-2 font-medium">MC/g</th>
-              <th className="text-right p-2 font-medium">Amount</th>
+            <tr className="bg-gray-100 border-y-2 border-gray-300">
+              <th className="py-2 px-2 text-left text-xs font-semibold text-gray-600 uppercase">Sr.</th>
+              <th className="py-2 px-2 text-left text-xs font-semibold text-gray-600 uppercase">Item</th>
+              <th className="py-2 px-2 text-center text-xs font-semibold text-gray-600 uppercase">Purity</th>
+              <th className="py-2 px-2 text-right text-xs font-semibold text-gray-600 uppercase">Wt (g)</th>
+              <th className="py-2 px-2 text-right text-xs font-semibold text-gray-600 uppercase">Rate/g</th>
+              <th className="py-2 px-2 text-right text-xs font-semibold text-gray-600 uppercase">MC/g</th>
+              <th className="py-2 px-2 text-right text-xs font-semibold text-gray-600 uppercase">Amount</th>
             </tr>
           </thead>
           <tbody>
-            {sale.items &&
-              sale.items.map((item) => {
-                const itemWeight = item.sellingWeight || 0;
-                const itemPricePerGram = item.sellingPricePerGram || 0;
-                const itemMakingChargePerGram = item.makingChargePerGram || 0;
-                const linePrice = itemWeight * itemPricePerGram;
-                const lineMC = itemWeight * itemMakingChargePerGram;
-                const lineTotal = (linePrice + lineMC) * item.quantity;
-                return (
-                  <tr key={item._id || item.productId} className="border-b">
-                    <td className="p-2">
-                      {item.name} (Qty: {item.quantity})
-                    </td>
-                    <td className="text-center p-2">
-                      {item.sellingPurity || "N/A"}
-                    </td>
-                    <td className="text-right p-2">{itemWeight.toFixed(3)}</td>
-                    <td className="text-right p-2">
-                      ₹{itemPricePerGram.toFixed(2)}
-                    </td>
-                    <td className="text-right p-2">
-                      ₹{itemMakingChargePerGram.toFixed(2)}
-                    </td>
-                    <td className="text-right p-2 font-medium">
-                      ₹{lineTotal.toFixed(2)}
-                    </td>
-                  </tr>
-                );
-              })}
+            {sale.items.map((item, idx) => (
+              <tr key={item._id || idx} className="border-b border-gray-200">
+                <td className="py-2 px-2 text-gray-500">{idx + 1}</td>
+                <td className="py-2 px-2 font-medium text-gray-900">
+                  {item.name}
+                  {item.quantity > 1 && <span className="ml-1 text-xs text-gray-500">(×{item.quantity})</span>}
+                </td>
+                <td className="py-2 px-2 text-center text-gray-600">{item.sellingPurity || "—"}</td>
+                <td className="py-2 px-2 text-right text-gray-700">{((item.sellingWeight || 0) * item.quantity).toFixed(3)}</td>
+                <td className="py-2 px-2 text-right text-gray-700">₹{(item.sellingPricePerGram || 0).toFixed(2)}</td>
+                <td className="py-2 px-2 text-right text-gray-700">₹{(item.makingChargePerGram || 0).toFixed(2)}</td>
+                <td className="py-2 px-2 text-right font-semibold text-gray-900">₹{getLineTotal(item).toFixed(2)}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
 
+        {/* Totals */}
         <div className="flex justify-end">
-          <div className="w-full max-w-sm text-sm">
-            <div className="flex justify-between py-1">
-              <span>Subtotal:</span>
+          <div className="w-68 text-sm space-y-1.5" style={{ minWidth: "260px" }}>
+            <div className="flex justify-between text-gray-600">
+              <span>Metal Value</span>
               <span>₹{(sale.subtotal || 0).toFixed(2)}</span>
             </div>
-            <div className="flex justify-between py-1">
-              <span>Total Making Charges (मजुरी):</span>
+            <div className="flex justify-between text-gray-600">
+              <span>Making Charges</span>
               <span>₹{(sale.totalMakingCharges || 0).toFixed(2)}</span>
             </div>
-            <div className="flex justify-between py-2 border-t mt-2 font-bold text-lg">
-              <span>Total (एकूण):</span>
+            {hasGst && (
+              <>
+                <div className="border-t border-gray-200 pt-1 flex justify-between text-gray-600">
+                  <span>Taxable Amount</span>
+                  <span>₹{((sale.subtotal || 0) + (sale.totalMakingCharges || 0)).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-gray-700">
+                  <span>CGST <span className="text-xs text-gray-400">(Metal 1.5% + MC 2.5%)</span></span>
+                  <span>₹{(sale.cgstAmount || 0).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-gray-700">
+                  <span>SGST <span className="text-xs text-gray-400">(Metal 1.5% + MC 2.5%)</span></span>
+                  <span>₹{(sale.sgstAmount || 0).toFixed(2)}</span>
+                </div>
+              </>
+            )}
+            <div className="flex justify-between font-bold text-base border-t-2 border-gray-800 pt-2">
+              <span>Total (एकूण)</span>
               <span>₹{(sale.totalAmount || 0).toFixed(2)}</span>
             </div>
-            <div className="flex justify-between py-1 text-green-600 font-medium">
-              <span>Advance (नगदी जमा):</span>
-              <span>- ₹{(sale.advancePayment || 0).toFixed(2)}</span>
-            </div>
-            {/* *** FIX 4: Discount in Modal *** */}
-            {sale.discount > 0 && (
-              <div className="flex justify-between py-1 text-purple-600 font-medium">
-                <span>Discount (सूट):</span>
-                <span>- ₹{(sale.discount || 0).toFixed(2)}</span>
+            {(sale.advancePayment || 0) > 0 && (
+              <div className="flex justify-between text-green-700">
+                <span>Advance / Old Gold (नगदी जमा)</span>
+                <span>– ₹{sale.advancePayment.toFixed(2)}</span>
               </div>
             )}
-
-            <div className="flex justify-between py-2 border-t mt-2 font-bold text-xl text-blue-600">
-              <span>Total Bill (एकूण बिल):</span>
+            {(sale.discount || 0) > 0 && (
+              <div className="flex justify-between text-purple-700">
+                <span>Discount (सूट)</span>
+                <span>– ₹{sale.discount.toFixed(2)}</span>
+              </div>
+            )}
+            <div className="flex justify-between font-extrabold text-lg text-blue-700 border-t-2 border-blue-700 pt-2">
+              <span>Balance Due (बाकी येणे)</span>
               <span>₹{(sale.balanceDue || 0).toFixed(2)}</span>
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="mt-8 flex justify-end space-x-3">
+        {/* Signature Lines */}
+        <div className="mt-12 grid grid-cols-2 gap-8 text-sm">
+          <div className="text-center">
+            <div className="border-t border-gray-400 pt-2 mt-8">
+              <p className="font-medium text-gray-700">Customer Signature</p>
+              <p className="text-xs text-gray-500 mt-0.5">{sale.customerName || ""}</p>
+            </div>
+          </div>
+          <div className="text-center">
+            <div className="border-t border-gray-400 pt-2 mt-8">
+              <p className="font-medium text-gray-700">Authorized Signatory</p>
+              <p className="text-xs text-gray-500 mt-0.5">{siteConfig.shopName}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="mt-8 pt-4 border-t border-gray-200 text-xs text-gray-500">
+          <div className="flex justify-between items-end">
+            <div className="space-y-1">
+              <p className="font-medium text-gray-700">Thank you for your business! आपल्या विश्वासाबद्दल धन्यवाद.</p>
+              <p>Goods once sold will not be taken back or exchanged.</p>
+              <p>{siteConfig.shopAddress}</p>
+            </div>
+            <span className="flex-shrink-0 ml-4 inline-block border-2 border-gray-400 text-gray-500 font-bold text-xs px-3 py-1 rounded tracking-widest uppercase">
+              Customer Copy
+            </span>
+          </div>
+        </div>
+      </div>
+      {/* ══════════════════════════════════════════ */}
+
+      {/* Action Buttons — never printed */}
+      <div className="mt-5 pt-4 border-t flex justify-between items-center print-hide">
         <button
-          onClick={onClose}
-          className="bg-gray-200 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-300"
+          onClick={handlePrint}
+          className="flex items-center gap-2 bg-gray-700 text-white px-4 py-2.5 rounded-lg hover:bg-gray-800 transition-colors font-medium text-sm"
         >
-          Close
+          <FaPrint className="w-4 h-4" />
+          Print Invoice
         </button>
-        <button
-          onClick={generateSalePDF}
-          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
-        >
-          Download PDF
-        </button>
+
+        <div className="flex gap-3">
+          {sale.customerMobile && (
+            <button
+              onClick={handleWhatsApp}
+              className="flex items-center gap-2 bg-green-500 text-white px-4 py-2.5 rounded-lg hover:bg-green-600 transition-colors font-medium text-sm"
+            >
+              <FaWhatsapp className="w-4 h-4" />
+              Share on WhatsApp
+            </button>
+          )}
+          <button
+            onClick={handleDownloadPDF}
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
+          >
+            <FiDownload className="w-4 h-4" />
+            Download PDF
+          </button>
+          <button
+            onClick={onClose}
+            className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2.5 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+          >
+            <FiX className="w-4 h-4" />
+            Close
+          </button>
+        </div>
       </div>
     </div>
   );
