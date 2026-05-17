@@ -112,11 +112,12 @@ const LoginPage = () => {
     setIsLoading(true);
     try {
       const { data } = await forgotPassword(resetUsername);
-      toast.info(
-        "If this username exists, a token has been generated. Check server logs (Dev Only)."
-      );
       if (data?.dev_token) {
         setResetToken(data.dev_token);
+        toast.success("Token generated. Enter your new password below.");
+      } else {
+        toast.error("Username not found. Please check and try again.");
+        return;
       }
       setView("reset");
     } catch (err) {
@@ -281,26 +282,9 @@ const LoginPage = () => {
   const renderResetPasswordForm = () => (
     <form className="space-y-6" onSubmit={handleResetPassword}>
       <p className="text-sm text-gray-300 text-center">
-        Check the server log for your token, then set a new password.
+        Token verified. Enter your new password below.
       </p>
-      <div className="relative group">
-        <label htmlFor="token" className="sr-only">
-          Reset Token
-        </label>
-        <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
-          <FaKey className="w-5 h-5 text-gray-400 group-focus-within:text-green-400 transition-colors duration-300" />
-        </div>
-        <input
-          id="token"
-          name="token"
-          type="text"
-          required
-          value={resetToken}
-          onChange={(e) => setResetToken(e.target.value)}
-          placeholder="Paste Token from server log"
-          className="block w-full pl-12 pr-4 py-4 bg-white/5 border-2 border-white/10 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-500/20 transition-all duration-300 backdrop-blur-lg"
-        />
-      </div>
+      <input type="hidden" value={resetToken} readOnly />
 
       <div className="relative group">
         <label htmlFor="new-password" className="sr-only">
