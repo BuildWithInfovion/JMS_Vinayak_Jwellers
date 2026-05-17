@@ -61,15 +61,15 @@ export const printInvoice = ({
   // ── Totals blocks ──────────────────────────────────────────────────
   const gstBlock = applyGst
     ? `<tr class="divider-row">
-         <td class="tlabel">करपात्र रक्कम <span class="sub">Taxable Amt</span></td>
+         <td class="tlabel">Taxable Amount</td>
          <td class="tvalue">${rs(taxableAmount)}</td>
        </tr>
        <tr>
-         <td class="tlabel small">CGST <span class="rate">(धातू @1.5% + घडाई @2.5%)</span></td>
+         <td class="tlabel small">CGST <span class="rate">(Metal @1.5% + MC @2.5%)</span></td>
          <td class="tvalue">${rs(cgstAmount)}</td>
        </tr>
        <tr>
-         <td class="tlabel small">SGST <span class="rate">(धातू @1.5% + घडाई @2.5%)</span></td>
+         <td class="tlabel small">SGST <span class="rate">(Metal @1.5% + MC @2.5%)</span></td>
          <td class="tvalue">${rs(sgstAmount)}</td>
        </tr>`
     : "";
@@ -77,7 +77,7 @@ export const printInvoice = ({
   const advanceBlock =
     (advancePayment || 0) > 0
       ? `<tr>
-           <td class="tlabel" style="color:#14532d;">अग्रीम रक्कम <span class="sub">Advance Paid</span></td>
+           <td class="tlabel" style="color:#14532d;">Advance Paid</td>
            <td class="tvalue" style="color:#14532d;">&minus; ${rs(advancePayment)}</td>
          </tr>`
       : "";
@@ -85,19 +85,19 @@ export const printInvoice = ({
   const discountBlock =
     (discount || 0) > 0
       ? `<tr>
-           <td class="tlabel" style="color:#6d28d9;">सूट <span class="sub">Discount</span></td>
+           <td class="tlabel" style="color:#6d28d9;">Discount</td>
            <td class="tvalue" style="color:#6d28d9;">&minus; ${rs(discount)}</td>
          </tr>`
       : "";
 
   const oldGoldBlock =
     (oldGoldWeight || 0) > 0
-      ? `<div class="old-gold-badge">&#2332;&#2369;&#2344;&#2375; &#2360;&#2379;&#2344;&#2375; / Old Gold: <strong>${oldGoldWeight}g</strong></div>`
+      ? `<div class="old-gold-badge">Old Gold Returned: <strong>${oldGoldWeight}g</strong></div>`
       : "";
 
   const invoiceNumHtml = invoiceNumber
     ? `<strong>#${invoiceNumber}</strong>`
-    : `<strong style="color:#b91c1c;">DRAFT &mdash; &#2352;&#2379;&#2326;&#2351;&#2366;&#2330;&#2368; &#2344;&#2379;&#2306;&#2342;</strong>`;
+    : `<strong style="color:#b91c1c;">DRAFT &mdash; Not yet confirmed</strong>`;
 
   const gstinHtml =
     applyGst && displayGstin
@@ -166,11 +166,10 @@ export const printInvoice = ({
       background: #1c1917;
       color: #fff;
       text-align: center;
-      padding: 5px 0 4px;
+      padding: 6px 0 5px;
       margin-bottom: 7px;
     }
-    .inv-title-bar .mr { font-size: 12pt; font-weight: 900; letter-spacing: 2px; }
-    .inv-title-bar .en { font-size: 8pt; letter-spacing: 4px; opacity: 0.75; }
+    .inv-title-bar .mr { font-size: 13pt; font-weight: 900; letter-spacing: 4px; text-transform: uppercase; }
 
     /* ══ META ROW ══ */
     .meta-row {
@@ -227,8 +226,6 @@ export const printInvoice = ({
       font-weight: 700;
       line-height: 1.3;
     }
-    .items-table thead th .mr { display: block; font-size: 8pt; }
-    .items-table thead th .en { display: block; font-size: 6.5pt; opacity: 0.7; font-weight: 400; letter-spacing: 0.3px; }
     .items-table tbody td {
       padding: 5px 6px;
       font-size: 9.5pt;
@@ -338,28 +335,27 @@ export const printInvoice = ({
 
 <!-- ═══ TITLE BAR ═══ -->
 <div class="inv-title-bar">
-  <div class="mr">${applyGst ? "कर बिल" : "बिल"}</div>
-  <div class="en">${applyGst ? "TAX INVOICE" : "INVOICE"}</div>
+  <div class="mr">${applyGst ? "TAX INVOICE" : "INVOICE"}</div>
 </div>
 
 <!-- ═══ META ROW ═══ -->
 <div class="meta-row">
   <div>
-    <div class="meta-label">बिल क्र. / Invoice No.</div>
+    <div class="meta-label">Invoice No.</div>
     <div class="meta-val">${invoiceNumHtml}</div>
   </div>
   <div style="text-align:right;">
-    <div class="meta-label">दिनांक / Date</div>
+    <div class="meta-label">Date</div>
     <div class="meta-val">${date}</div>
   </div>
 </div>
 
 <!-- ═══ CUSTOMER BOX ═══ -->
 <div class="customer-box">
-  <div class="sec-label">ग्राहकास &nbsp;/&nbsp; Billed To</div>
-  <div class="cust-name">${customerName || "अनोळखी ग्राहक / Walk-in Customer"}</div>
-  ${customerAddress ? `<div class="cust-detail">पत्ता: ${customerAddress}</div>` : ""}
-  <div class="cust-detail">मोबाईल / Mo: ${customerMobile || "&mdash;"}</div>
+  <div class="sec-label">Billed To</div>
+  <div class="cust-name">${customerName || "Walk-in Customer"}</div>
+  ${customerAddress ? `<div class="cust-detail">${customerAddress}</div>` : ""}
+  <div class="cust-detail">Mo: ${customerMobile || "&mdash;"}</div>
   ${oldGoldBlock}
 </div>
 
@@ -367,14 +363,14 @@ export const printInvoice = ({
 <table class="items-table">
   <thead>
     <tr>
-      <th style="width:4%;text-align:center;"><span class="mr">क्र.</span><span class="en">Sr.</span></th>
-      <th style="width:26%;text-align:left;"><span class="mr">माल वर्णन</span><span class="en">Description</span></th>
-      <th style="width:7%;text-align:center;"><span class="mr">HSN</span><span class="en">Code</span></th>
-      <th style="width:9%;text-align:center;"><span class="mr">शुद्धता</span><span class="en">Purity</span></th>
-      <th style="width:10%;text-align:right;"><span class="mr">वजन (ग्रॅ.)</span><span class="en">Wt (g)</span></th>
-      <th style="width:14%;text-align:right;"><span class="mr">दर/ग्रॅ.</span><span class="en">Rate/g (&#8377;)</span></th>
-      <th style="width:12%;text-align:right;"><span class="mr">घडाई/ग्रॅ.</span><span class="en">MC/g (&#8377;)</span></th>
-      <th style="width:14%;text-align:right;"><span class="mr">रक्कम</span><span class="en">Amount (&#8377;)</span></th>
+      <th style="width:4%;text-align:center;">Sr.</th>
+      <th style="width:27%;text-align:left;">Description</th>
+      <th style="width:7%;text-align:center;">HSN</th>
+      <th style="width:9%;text-align:center;">Purity</th>
+      <th style="width:10%;text-align:right;">Wt&nbsp;(g)</th>
+      <th style="width:14%;text-align:right;">Rate/g&nbsp;(&#8377;)</th>
+      <th style="width:12%;text-align:right;">MC/g&nbsp;(&#8377;)</th>
+      <th style="width:14%;text-align:right;">Amount&nbsp;(&#8377;)</th>
     </tr>
   </thead>
   <tbody>
@@ -386,11 +382,11 @@ export const printInvoice = ({
 <div class="totals-wrap">
   <table class="totals-table">
     <tr>
-      <td class="tlabel">धातू किंमत <span class="sub">Metal Value</span></td>
+      <td class="tlabel">Metal Value</td>
       <td class="tvalue">${rs(itemsSubtotal)}</td>
     </tr>
     <tr>
-      <td class="tlabel">घडाई शुल्क <span class="sub">Making Charges</span></td>
+      <td class="tlabel">Making Charges</td>
       <td class="tvalue">${rs(totalMakingCharges)}</td>
     </tr>
     ${gstBlock}
@@ -409,25 +405,24 @@ export const printInvoice = ({
 
 <!-- ═══ TERMS ═══ -->
 <div class="terms">
-  <span class="terms-label">अटी व शर्ती / Terms &amp; Conditions:</span>&nbsp;
-  विकलेला माल परत घेतला जाणार नाही व बदलून दिला जाणार नाही.&nbsp;|&nbsp;
+  <span class="terms-label">Terms &amp; Conditions:</span>&nbsp;
   Goods once sold will not be taken back or exchanged.&nbsp;|&nbsp;
-  शुद्धता हॉलमार्कनुसार.&nbsp;|&nbsp; E.&amp;O.E.
+  Purity as hallmarked and declared.&nbsp;|&nbsp;
+  All disputes subject to local jurisdiction.&nbsp;|&nbsp;
+  E.&amp;O.E.
 </div>
 
 <!-- ═══ SIGNATURES ═══ -->
 <div class="sigs">
   <div class="sig-block">
     <div class="sig-line">
-      <div class="sig-mr">ग्राहक स्वाक्षरी</div>
-      <div class="sig-en">Customer Signature</div>
+      <div class="sig-mr">Customer Signature</div>
       <div class="sig-name">${customerName || ""}</div>
     </div>
   </div>
   <div class="sig-block">
     <div class="sig-line">
-      <div class="sig-mr">अधिकृत स्वाक्षरी</div>
-      <div class="sig-en">Authorized Signatory</div>
+      <div class="sig-mr">Authorized Signatory</div>
       <div class="sig-name">${siteConfig.shopName}</div>
     </div>
   </div>
@@ -439,10 +434,10 @@ export const printInvoice = ({
     <div class="footer-ty">आपल्या विश्वासाबद्दल धन्यवाद!</div>
     <div class="footer-sub">Thank you for your business &nbsp;|&nbsp; ${siteConfig.shopAddress}</div>
   </div>
-  <div class="copy-stamp">ग्राहक प्रत / CUSTOMER COPY</div>
+  <div class="copy-stamp">CUSTOMER COPY</div>
 </div>
 
-<button class="no-print" onclick="window.close()">&#x2715;&nbsp; बंद करा / Close</button>
+<button class="no-print" onclick="window.close()">&#x2715;&nbsp; Close</button>
 
 <script>
   window.onload = function () { window.print(); };
