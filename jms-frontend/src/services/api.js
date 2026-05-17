@@ -132,3 +132,12 @@ export const createDebt = (debtData) => {
   return axios.post(`${API_BASE_URL}/api/debt`, debtData);
 };
 // ------------------------------------------------
+
+// --- Settings ---
+export const getSettings = () => {
+  return axios.get(`${API_BASE_URL}/api/settings`);
+};
+
+export const updateSettings = (settingsData) => {
+  return axios.put(`${API_BASE_URL}/api/settings`, settingsData);
+};

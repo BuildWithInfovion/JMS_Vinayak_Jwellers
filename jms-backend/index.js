@@ -16,7 +16,8 @@ const productRoutes = require("./api/products");
 const saleRoutes = require("./api/sales");
 const authRoutes = require("./api/auth");
 const gahanRoutes = require("./api/gahan");
-const debtRoutes = require("./api/debt"); // <-- 1. Import Debt routes
+const debtRoutes = require("./api/debt");
+const settingsRoutes = require("./api/settings");
 
 // Middleware
 app.use(cors());
@@ -36,7 +37,8 @@ app.use("/api/sales", authMiddleware, saleRoutes);
 // Assuming middleware is applied within gahan.js, if not, add it here.
 // Based on our plan, it should be protected.
 app.use("/api/gahan", authMiddleware, gahanRoutes);
-app.use("/api/debt", authMiddleware, debtRoutes); // <-- 2. Add Debt routes
+app.use("/api/debt", authMiddleware, debtRoutes);
+app.use("/api/settings", settingsRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);

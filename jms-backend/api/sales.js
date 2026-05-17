@@ -38,9 +38,11 @@ router.post("/", async (req, res) => {
     customerName,
     customerAddress,
     customerMobile,
-    // New fields
     discount,
     oldGoldWeight,
+    gstAmount,
+    cgstAmount,
+    sgstAmount,
   } = req.body;
 
   if (!items || items.length === 0 || !totalAmount || !customerMobile) {
@@ -109,9 +111,11 @@ router.post("/", async (req, res) => {
       totalAmount,
       advancePayment,
       balanceDue,
-      // *** Save the new fields ***
       discount: discount || 0,
       oldGoldWeight: oldGoldWeight || 0,
+      gstAmount: gstAmount || 0,
+      cgstAmount: cgstAmount || 0,
+      sgstAmount: sgstAmount || 0,
     });
 
     // *** DEBUG LOG: Check what Mongoose is about to save ***

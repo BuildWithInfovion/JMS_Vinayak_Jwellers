@@ -1,18 +1,19 @@
-// frontend/src/pages/PosPage.jsx
 import React, { useState, useEffect, useMemo } from "react";
 import ProductSelector from "../components/pos/ProductSelector";
 import Cart from "../components/pos/Cart";
 import Modal from "../components/common/Modal";
 import InvoicePreview from "../components/pos/InvoicePreview";
-import { getProducts, createSale } from "../services/api";
+import { getProducts, createSale, getSettings } from "../services/api";
 import {
   FiShoppingCart,
   FiUser,
   FiPhone,
   FiMapPin,
   FiDollarSign,
-  FiPercent, // New icon for discount
-  FiLayers, // New icon for old gold weight
+  FiPercent,
+  FiLayers,
+  FiToggleLeft,
+  FiToggleRight,
 } from "react-icons/fi";
 
 const PosPage = () => {
@@ -21,17 +22,20 @@ const PosPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [confirmedSaleData, setConfirmedSaleData] = useState(null);
 
   // Customer & Payment State
   const [customerName, setCustomerName] = useState("");
   const [customerAddress, setCustomerAddress] = useState("");
   const [customerMobile, setCustomerMobile] = useState("");
   const [advancePayment, setAdvancePayment] = useState(0);
-
-  // *** NEW STATE VARIABLES ***
   const [discount, setDiscount] = useState(0);
   const [oldGoldWeight, setOldGoldWeight] = useState(0);
-  // **************************
+
+  // GST Settings (loaded from DB)
+  const [gstEnabled, setGstEnabled] = useState(false);   // shop default
+  const [gstNumber, setGstNumber] = useState("");
+  const [applyGst, setApplyGst] = useState(false);       // per-sale override
 
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -49,39 +53,42 @@ const PosPage = () => {
 
   useEffect(() => {
     fetchProductsForPOS();
+    // Load GST settings from DB
+    getSettings()
+      .then((res) => {
+        const enabled = res.data.gst_enabled === true || res.data.gst_enabled === "true";
+        setGstEnabled(enabled);
+        setApplyGst(enabled);
+        setGstNumber(res.data.gst_number || "");
+      })
+      .catch(() => {
+        // non-critical; GST defaults to off
+      });
   }, []);
 
   const filteredProducts = useMemo(() => {
-    if (!searchTerm) {
-      return availableProducts;
-    }
-    return availableProducts.filter((product) =>
-      product.name.toLowerCase().includes(searchTerm.toLowerCase())
+    if (!searchTerm) return availableProducts;
+    return availableProducts.filter((p) =>
+      p.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [availableProducts, searchTerm]);
 
   const handleAddToCart = (productToAdd) => {
     setCartItems((prevItems) => {
-      const productInDb = availableProducts.find(
-        (p) => p._id === productToAdd._id
-      );
+      const productInDb = availableProducts.find((p) => p._id === productToAdd._id);
       const isBulk = productInDb.type === "bulk_weight";
       if (isBulk ? productInDb.weight <= 0 : productInDb.stock <= 0) {
         alert("This item is out of stock.");
         return prevItems;
       }
-      const existingItem = prevItems.find(
-        (item) => item._id === productToAdd._id
-      );
+      const existingItem = prevItems.find((item) => item._id === productToAdd._id);
       if (existingItem) {
         if (!isBulk && existingItem.quantity >= productInDb.stock) {
           alert(`Max stock reached for ${productInDb.name}`);
           return prevItems;
         }
         return prevItems.map((item) =>
-          item._id === productToAdd._id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
+          item._id === productToAdd._id ? { ...item, quantity: item.quantity + 1 } : item
         );
       }
       return [
@@ -118,52 +125,26 @@ const PosPage = () => {
   const handleDecreaseQuantity = (productId) => {
     setCartItems((prevItems) =>
       prevItems
-        .map((item) =>
-          item._id === productId
-            ? { ...item, quantity: item.quantity - 1 }
-            : item
-        )
+        .map((item) => (item._id === productId ? { ...item, quantity: item.quantity - 1 } : item))
         .filter((item) => item.quantity > 0)
     );
   };
 
   const handleRemoveItem = (productId) => {
-    setCartItems((prevItems) =>
-      prevItems.filter((item) => item._id !== productId)
-    );
+    setCartItems((prevItems) => prevItems.filter((item) => item._id !== productId));
   };
 
-  const handleUpdateCartPrice = (productId, price) => {
-    setCartItems((prevItems) =>
-      prevItems.map((item) =>
-        item._id === productId ? { ...item, sellingPricePerGram: price } : item
-      )
-    );
-  };
+  const handleUpdateCartPrice = (productId, price) =>
+    setCartItems((prev) => prev.map((item) => item._id === productId ? { ...item, sellingPricePerGram: price } : item));
 
-  const handleUpdateCartWeight = (productId, weight) => {
-    setCartItems((prevItems) =>
-      prevItems.map((item) =>
-        item._id === productId ? { ...item, sellingWeight: weight } : item
-      )
-    );
-  };
+  const handleUpdateCartWeight = (productId, weight) =>
+    setCartItems((prev) => prev.map((item) => item._id === productId ? { ...item, sellingWeight: weight } : item));
 
-  const handleUpdateCartPurity = (productId, purity) => {
-    setCartItems((prevItems) =>
-      prevItems.map((item) =>
-        item._id === productId ? { ...item, sellingPurity: purity } : item
-      )
-    );
-  };
+  const handleUpdateCartPurity = (productId, purity) =>
+    setCartItems((prev) => prev.map((item) => item._id === productId ? { ...item, sellingPurity: purity } : item));
 
-  const handleUpdateCartMakingCharge = (productId, charge) => {
-    setCartItems((prevItems) =>
-      prevItems.map((item) =>
-        item._id === productId ? { ...item, makingChargePerGram: charge } : item
-      )
-    );
-  };
+  const handleUpdateCartMakingCharge = (productId, charge) =>
+    setCartItems((prev) => prev.map((item) => item._id === productId ? { ...item, makingChargePerGram: charge } : item));
 
   const handleGenerateInvoice = () => {
     if (cartItems.length === 0) {
@@ -176,29 +157,21 @@ const PosPage = () => {
     }
     const invalidItem = cartItems.find((item) => {
       const isPricedByGram = item.category !== "Others";
-      if (
-        isPricedByGram &&
-        (!item.sellingPricePerGram || item.sellingPricePerGram <= 0)
-      ) {
-        return true;
-      }
-      if (isPricedByGram && (!item.sellingWeight || item.sellingWeight <= 0)) {
-        return true;
-      }
-      return false;
+      return isPricedByGram && (
+        !item.sellingPricePerGram || item.sellingPricePerGram <= 0 ||
+        !item.sellingWeight || item.sellingWeight <= 0
+      );
     });
     if (invalidItem) {
-      alert(
-        `Error: Please enter a valid Weight and Price/Gram for "${invalidItem.name}".`
-      );
+      alert(`Error: Please enter a valid Weight and Price/Gram for "${invalidItem.name}".`);
       return;
     }
+    setConfirmedSaleData(null);
     setIsInvoiceModalOpen(true);
   };
 
   const handleConfirmSale = async (saleDataFromModal) => {
     if (isSaving) return;
-
     setIsSaving(true);
     try {
       const salePayload = {
@@ -222,29 +195,34 @@ const PosPage = () => {
         discount: saleDataFromModal.discount,
         oldGoldWeight: saleDataFromModal.oldGoldWeight,
         gstAmount: saleDataFromModal.gstAmount || 0,
+        cgstAmount: saleDataFromModal.cgstAmount || 0,
+        sgstAmount: saleDataFromModal.sgstAmount || 0,
       };
 
-      await createSale(salePayload);
-
-      alert("Sale Confirmed & Saved!");
-
-      setCartItems([]);
-      setCustomerName("");
-      setCustomerAddress("");
-      setCustomerMobile("");
-      setAdvancePayment(0);
-      setDiscount(0); // Reset discount
-      setOldGoldWeight(0); // Reset old gold weight
-      setIsInvoiceModalOpen(false);
+      const response = await createSale(salePayload);
+      // Keep modal open — show confirmed state with invoice number + Print button
+      setConfirmedSaleData(response.data);
       fetchProductsForPOS();
     } catch (error) {
       console.error("Failed to create sale:", error);
-      const errorMessage =
-        error.response?.data?.message || "Failed to save sale.";
+      const errorMessage = error.response?.data?.message || "Failed to save sale.";
       alert(`Error: ${errorMessage}`);
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleDone = () => {
+    setIsInvoiceModalOpen(false);
+    setConfirmedSaleData(null);
+    setCartItems([]);
+    setCustomerName("");
+    setCustomerAddress("");
+    setCustomerMobile("");
+    setAdvancePayment(0);
+    setDiscount(0);
+    setOldGoldWeight(0);
+    setApplyGst(gstEnabled); // reset to shop default
   };
 
   if (isLoading) {
@@ -270,13 +248,11 @@ const PosPage = () => {
             Point of Sale
           </h1>
         </div>
-        <p className="text-gray-600 ml-16">
-          Create invoices and process sales transactions
-        </p>
+        <p className="text-gray-600 ml-16">Create invoices and process sales transactions</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* Product Selector - Left Side */}
+        {/* Product Selector */}
         <div className="lg:col-span-2">
           <ProductSelector
             products={filteredProducts}
@@ -286,11 +262,10 @@ const PosPage = () => {
           />
         </div>
 
-        {/* Billing Section - Right Side */}
+        {/* Billing Section */}
         <div className="lg:col-span-3 space-y-6">
           {/* Customer Information Card */}
           <div className="bg-white rounded-2xl shadow-xl border-2 border-blue-100 overflow-hidden">
-            {/* Header */}
             <div className="bg-gradient-to-r from-blue-500 to-cyan-500 px-6 py-4">
               <h4 className="text-lg font-bold text-white flex items-center space-x-2">
                 <FiUser className="w-5 h-5" />
@@ -298,7 +273,6 @@ const PosPage = () => {
               </h4>
             </div>
 
-            {/* Form Fields */}
             <div className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Customer Name */}
@@ -316,7 +290,7 @@ const PosPage = () => {
                   />
                 </div>
 
-                {/* Mobile Number */}
+                {/* Mobile */}
                 <div>
                   <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
                     <FiPhone className="w-4 h-4 text-blue-500" />
@@ -347,21 +321,19 @@ const PosPage = () => {
                   />
                 </div>
 
-                {/* *** NEW: Old Gold Weight (Grams) *** */}
+                {/* Old Gold Weight */}
                 <div>
                   <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
                     <FiLayers className="w-4 h-4 text-amber-600" />
-                    <span>Old Gold WT(G)</span>
+                    <span>Old Gold WT (g)</span>
                   </label>
                   <input
                     type="number"
                     value={oldGoldWeight}
-                    onChange={(e) =>
-                      setOldGoldWeight(parseFloat(e.target.value) || 0)
-                    }
+                    onChange={(e) => setOldGoldWeight(parseFloat(e.target.value) || 0)}
                     placeholder="Weight in grams"
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all duration-300"
                     min="0"
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all duration-300"
                   />
                 </div>
 
@@ -374,15 +346,13 @@ const PosPage = () => {
                   <input
                     type="number"
                     value={advancePayment}
-                    onChange={(e) =>
-                      setAdvancePayment(parseFloat(e.target.value) || 0)
-                    }
+                    onChange={(e) => setAdvancePayment(parseFloat(e.target.value) || 0)}
                     placeholder="Enter amount"
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-all duration-300"
                   />
                 </div>
 
-                {/* *** NEW: Discount Field *** */}
+                {/* Discount */}
                 <div>
                   <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
                     <FiPercent className="w-4 h-4 text-purple-500" />
@@ -391,24 +361,46 @@ const PosPage = () => {
                   <input
                     type="number"
                     value={discount}
-                    onChange={(e) =>
-                      setDiscount(parseFloat(e.target.value) || 0)
-                    }
+                    onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
                     placeholder="Enter discount amount"
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all duration-300"
                   />
+                </div>
+
+                {/* Per-sale GST Toggle */}
+                <div className="md:col-span-2">
+                  <div className="flex items-center justify-between p-4 bg-amber-50 border-2 border-amber-200 rounded-xl">
+                    <div>
+                      <p className="font-semibold text-amber-900 text-sm">Apply GST on this bill</p>
+                      <p className="text-xs text-amber-700 mt-0.5">
+                        {applyGst
+                          ? "GST active — Metal 3% (CGST+SGST), Making 5% (CGST+SGST)"
+                          : "GST not applied to this invoice"}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setApplyGst((prev) => !prev)}
+                      title={applyGst ? "Disable GST for this sale" : "Enable GST for this sale"}
+                      className="ml-4 flex-shrink-0"
+                    >
+                      {applyGst ? (
+                        <FiToggleRight className="w-10 h-10 text-green-500" strokeWidth={2} />
+                      ) : (
+                        <FiToggleLeft className="w-10 h-10 text-gray-400" strokeWidth={2} />
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Cart Section */}
+          {/* Cart */}
           <Cart
             items={cartItems}
             advancePayment={advancePayment}
-            // *** Pass new props to Cart for display calculations ***
             discount={discount}
-            // ******************************************************
+            applyGst={applyGst}
             onIncrease={handleIncreaseQuantity}
             onDecrease={handleDecreaseQuantity}
             onRemove={handleRemoveItem}
@@ -424,9 +416,9 @@ const PosPage = () => {
       {/* Invoice Modal */}
       <Modal
         isOpen={isInvoiceModalOpen}
-        onClose={() => setIsInvoiceModalOpen(false)}
-        title="Invoice Preview"
-        maxWidth="max-w-2xl"
+        onClose={confirmedSaleData ? handleDone : () => setIsInvoiceModalOpen(false)}
+        title={confirmedSaleData ? `Invoice #${confirmedSaleData.invoiceNumber} — Confirmed` : "Invoice Preview"}
+        maxWidth="max-w-3xl"
       >
         <InvoicePreview
           items={cartItems}
@@ -434,12 +426,14 @@ const PosPage = () => {
           customerAddress={customerAddress}
           customerMobile={customerMobile}
           advancePayment={advancePayment}
-          // *** Pass NEW fields to InvoicePreview ***
           discount={discount}
           oldGoldWeight={oldGoldWeight}
-          // ****************************************
+          applyGst={applyGst}
+          gstNumber={gstNumber}
+          confirmedSaleData={confirmedSaleData}
           onClose={() => setIsInvoiceModalOpen(false)}
           onConfirm={handleConfirmSale}
+          onDone={handleDone}
           isSaving={isSaving}
         />
       </Modal>

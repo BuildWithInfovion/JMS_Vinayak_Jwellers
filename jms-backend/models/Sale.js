@@ -27,6 +27,8 @@ const saleSchema = new mongoose.Schema(
     discount: { type: Number, default: 0 },
     oldGoldWeight: { type: Number, default: 0 },
     gstAmount: { type: Number, default: 0 },
+    cgstAmount: { type: Number, default: 0 },
+    sgstAmount: { type: Number, default: 0 },
 
     totalAmount: { type: Number, required: true },
     advancePayment: { type: Number, default: 0 },
