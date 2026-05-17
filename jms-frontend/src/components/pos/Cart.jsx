@@ -1,10 +1,11 @@
 // frontend/src/components/pos/Cart.jsx
 import React from "react";
+import { siteConfig } from "../../utils/siteConfig"; // <--- IMPORT CONFIG
 
 const Cart = ({
   items,
   advancePayment,
-  discount, // *** NEW PROP ***
+  discount,
   onIncrease,
   onDecrease,
   onRemove,
@@ -14,6 +15,7 @@ const Cart = ({
   onUpdatePurity,
   onUpdateMakingCharge,
 }) => {
+  // 1. Calculate Base Totals
   const itemsSubtotal = items.reduce((total, item) => {
     const itemPrice =
       (item.sellingWeight || 0) * (item.sellingPricePerGram || 0);
@@ -26,11 +28,17 @@ const Cart = ({
     return total + itemMakingCharge * item.quantity;
   }, 0);
 
-  const grandTotal = itemsSubtotal + totalMakingCharges;
+  const taxableValue = itemsSubtotal + totalMakingCharges;
 
-  // *** UPDATED CALCULATION: Subtract Discount ***
+  // 2. GST Logic (The Toggle)
+  const gstRate = 0.03;
+  const gstAmount = siteConfig.enableGstBilling ? taxableValue * gstRate : 0;
+
+  // 3. Final Grand Total
+  const grandTotal = taxableValue + gstAmount;
+
+  // 4. Balance Due
   const balanceDue = grandTotal - (advancePayment || 0) - (discount || 0);
-  // **********************************************
 
   return (
     <div className="bg-white shadow rounded-lg p-4 flex flex-col h-full">
@@ -39,7 +47,6 @@ const Cart = ({
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50 sticky top-0">
             <tr>
-              {/* Table Headers (Including MC/g) */}
               <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                 Item
               </th>
@@ -64,7 +71,6 @@ const Cart = ({
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {/* Table Rows (Including MC/g input) */}
             {items.length === 0 ? (
               <tr>
                 <td colSpan="7" className="text-center py-10 text-gray-500">
@@ -74,19 +80,13 @@ const Cart = ({
             ) : (
               items.map((item) => (
                 <tr key={item._id}>
-                  {/* ... item details, quantity, weight, purity, rate/g ... */}
                   <td className="px-2 py-2 whitespace-nowrap text-sm font-medium">
                     {item.name}
                   </td>
                   <td className="px-2 py-2 whitespace-nowrap text-sm text-center">
-                    {/* Conditional rendering for bulk_weight products */}
                     {item.type === "bulk_weight" ? (
-                      // For bulk_weight: Display locked quantity (always 1)
-                      <div className="flex items-center justify-center">
-                        <span className="text-gray-500">1</span>
-                      </div>
+                      <span className="text-gray-500">1</span>
                     ) : (
-                      // For standard: Show +/- buttons
                       <div className="flex items-center justify-center space-x-1">
                         <button
                           onClick={() => onDecrease(item._id)}
@@ -104,11 +104,12 @@ const Cart = ({
                       </div>
                     )}
                   </td>
-                  <td className="px-2 py-2 whitespace-nowrap">
+                  {/* Inputs for Wt, Purity, Price, MC */}
+                  <td className="px-2 py-2">
                     <input
                       type="number"
                       step="0.01"
-                      className="w-16 border border-gray-300 rounded px-1 py-0.5 text-sm"
+                      className="w-16 border rounded px-1 text-sm"
                       value={item.sellingWeight}
                       onChange={(e) =>
                         onUpdateWeight(
@@ -118,31 +119,30 @@ const Cart = ({
                       }
                     />
                   </td>
-                  <td className="px-2 py-2 whitespace-nowrap">
+                  <td className="px-2 py-2">
                     <input
                       type="text"
-                      className="w-14 border border-gray-300 rounded px-1 py-0.5 text-sm"
+                      className="w-14 border rounded px-1 text-sm"
                       value={item.sellingPurity}
                       onChange={(e) => onUpdatePurity(item._id, e.target.value)}
                     />
                   </td>
-                  <td className="px-2 py-2 whitespace-nowrap">
+                  <td className="px-2 py-2">
                     <input
                       type="number"
                       step="0.01"
-                      className="w-20 border border-gray-300 rounded px-1 py-0.5 text-sm"
+                      className="w-20 border rounded px-1 text-sm"
                       value={item.sellingPricePerGram}
                       onChange={(e) =>
                         onUpdatePrice(item._id, parseFloat(e.target.value) || 0)
                       }
                     />
                   </td>
-                  {/* MC/g Input */}
-                  <td className="px-2 py-2 whitespace-nowrap">
+                  <td className="px-2 py-2">
                     <input
                       type="number"
                       step="0.01"
-                      className="w-16 border border-gray-300 rounded px-1 py-0.5 text-sm"
+                      className="w-16 border rounded px-1 text-sm"
                       value={item.makingChargePerGram || 0}
                       onChange={(e) =>
                         onUpdateMakingCharge(
@@ -152,7 +152,7 @@ const Cart = ({
                       }
                     />
                   </td>
-                  <td className="px-2 py-2 whitespace-nowrap text-sm">
+                  <td className="px-2 py-2">
                     <button
                       onClick={() => onRemove(item._id)}
                       className="text-red-500 hover:text-red-700"
@@ -167,12 +167,20 @@ const Cart = ({
         </table>
       </div>
 
-      {/* --- Updated Totals Section --- */}
+      {/* --- Totals Section --- */}
       <div className="border-t mt-4 pt-4 space-y-2">
         <div className="flex justify-between text-md">
-          <span>Subtotal (Item Total)</span>
-          <span>₹{itemsSubtotal.toFixed(2)}</span>
+          <span>Subtotal</span>
+          <span>₹{taxableValue.toFixed(2)}</span>
         </div>
+
+        {/* GST Row (Hidden if Disabled) */}
+        {siteConfig.enableGstBilling && (
+          <div className="flex justify-between text-md text-gray-800">
+            <span>GST (3%)</span>
+            <span>₹{gstAmount.toFixed(2)}</span>
+          </div>
+        )}
 
         <div className="flex justify-between font-bold text-lg border-t pt-1">
           <span>Total (एकूण)</span>
@@ -186,18 +194,15 @@ const Cart = ({
           </span>
         </div>
 
-        {/* *** NEW: Discount Line *** */}
         <div className="flex justify-between text-md">
           <span>Discount (सूट)</span>
           <span className="text-purple-600">
             - ₹{(discount || 0).toFixed(2)}
           </span>
         </div>
-        {/* ************************** */}
 
         <div className="flex justify-between font-bold text-xl text-blue-600 border-t pt-2">
           <span>Balance Due (बाकी येणे)</span>
-          {/* This now reflects the discount subtraction */}
           <span>₹{balanceDue.toFixed(2)}</span>
         </div>
 
@@ -209,7 +214,6 @@ const Cart = ({
           Generate Invoice
         </button>
       </div>
-      {/* ----------------------------- */}
     </div>
   );
 };

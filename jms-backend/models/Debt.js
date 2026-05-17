@@ -16,8 +16,9 @@ const DebtSchema = new mongoose.Schema(
     saleId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Sale",
-      required: true,
-      unique: true, // A sale should only create one debt record
+      required: false,
+      unique: true,
+      sparse: true, // allows multiple null values alongside the unique index
     },
     initialAmount: {
       type: Number,

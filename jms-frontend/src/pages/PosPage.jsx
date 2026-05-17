@@ -65,7 +65,8 @@ const PosPage = () => {
       const productInDb = availableProducts.find(
         (p) => p._id === productToAdd._id
       );
-      if (productInDb.stock <= 0) {
+      const isBulk = productInDb.type === "bulk_weight";
+      if (isBulk ? productInDb.weight <= 0 : productInDb.stock <= 0) {
         alert("This item is out of stock.");
         return prevItems;
       }
@@ -73,7 +74,7 @@ const PosPage = () => {
         (item) => item._id === productToAdd._id
       );
       if (existingItem) {
-        if (existingItem.quantity >= productInDb.stock) {
+        if (!isBulk && existingItem.quantity >= productInDb.stock) {
           alert(`Max stock reached for ${productInDb.name}`);
           return prevItems;
         }
@@ -102,7 +103,8 @@ const PosPage = () => {
     setCartItems((prevItems) =>
       prevItems.map((item) => {
         if (item._id === productId) {
-          if (item.quantity >= productInDb.stock) {
+          const isBulk = productInDb.type === "bulk_weight";
+          if (!isBulk && item.quantity >= productInDb.stock) {
             alert(`Max stock reached for ${item.name}`);
             return item;
           }
@@ -217,9 +219,9 @@ const PosPage = () => {
         customerName: saleDataFromModal.customerName,
         customerAddress: saleDataFromModal.customerAddress,
         customerMobile: saleDataFromModal.customerMobile,
-        // *** Pass the NEW fields to the backend ***
         discount: saleDataFromModal.discount,
         oldGoldWeight: saleDataFromModal.oldGoldWeight,
+        gstAmount: saleDataFromModal.gstAmount || 0,
       };
 
       await createSale(salePayload);

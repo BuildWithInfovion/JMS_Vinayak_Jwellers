@@ -133,7 +133,7 @@ router.post("/forgot-password", async (req, res) => {
       .digest("hex");
 
     user.resetPasswordToken = tokenHash;
-    user.resetPasswordExpire = Date.now() + 10 * 60 * 1000;
+    user.resetPasswordExpire = Date.now() + 60 * 60 * 1000; // 1 hour
     await user.save();
 
     console.log(
@@ -141,8 +141,7 @@ router.post("/forgot-password", async (req, res) => {
     );
 
     res.json({
-      message:
-        "Reset link generated. In a real scenario, this would be emailed. For development, check server logs.",
+      message: "Reset token generated successfully.",
       dev_token: resetToken,
     });
   } catch (error) {

@@ -24,10 +24,9 @@ const saleSchema = new mongoose.Schema(
     subtotal: { type: Number, required: true },
     totalMakingCharges: { type: Number, default: 0 },
 
-    // *** THESE FIELDS MUST BE HERE FOR THE DATA TO SAVE ***
     discount: { type: Number, default: 0 },
     oldGoldWeight: { type: Number, default: 0 },
-    // ****************************************************
+    gstAmount: { type: Number, default: 0 },
 
     totalAmount: { type: Number, required: true },
     advancePayment: { type: Number, default: 0 },
