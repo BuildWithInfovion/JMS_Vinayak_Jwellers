@@ -299,8 +299,12 @@ const PosPage = () => {
                   <input
                     type="tel"
                     value={customerMobile}
-                    onChange={(e) => setCustomerMobile(e.target.value)}
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
+                      setCustomerMobile(digits);
+                    }}
                     placeholder="Enter mobile number"
+                    maxLength={10}
                     required
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-300"
                   />
