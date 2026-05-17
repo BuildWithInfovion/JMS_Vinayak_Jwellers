@@ -1,38 +1,10 @@
 import React from "react";
 import { FaPrint, FaWhatsapp } from "react-icons/fa";
 import { FiDownload, FiX } from "react-icons/fi";
+import { toast } from "react-toastify";
 import { siteConfig } from "../../utils/siteConfig";
 import { printInvoice } from "../../utils/printInvoice";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
-
-// Build WhatsApp message from a saved sale record
-const buildWhatsAppMessage = (sale) => {
-  const date = new Date(sale.createdAt).toLocaleDateString("en-IN", {
-    day: "2-digit", month: "2-digit", year: "numeric",
-  });
-  const name = sale.customerName || "Customer";
-
-  const itemLines = sale.items.map((item) => {
-    const wt = (item.sellingWeight || 0) * item.quantity;
-    const amt = (wt * (item.sellingPricePerGram || 0)) + (wt * (item.makingChargePerGram || 0));
-    return `• ${item.name}${item.quantity > 1 ? ` ×${item.quantity}` : ""} (${wt.toFixed(3)}g) — ₹${amt.toFixed(2)}`;
-  }).join("\n");
-
-  const hasGst = (sale.gstAmount || 0) > 0;
-
-  let msg = `*${siteConfig.shopName}*\nInvoice #${sale.invoiceNumber} | ${date}\n\nDear ${name},\nThank you for your purchase!\n\n*Items:*\n${itemLines}\n\n`;
-  msg += `Metal Value: ₹${(sale.subtotal || 0).toFixed(2)}\nMaking Charges: ₹${(sale.totalMakingCharges || 0).toFixed(2)}\n`;
-  if (hasGst) {
-    msg += `CGST: ₹${(sale.cgstAmount || 0).toFixed(2)}\nSGST: ₹${(sale.sgstAmount || 0).toFixed(2)}\n`;
-  }
-  msg += `*Total: ₹${(sale.totalAmount || 0).toFixed(2)}*\n`;
-  if ((sale.advancePayment || 0) > 0) msg += `Advance Paid: — ₹${sale.advancePayment.toFixed(2)}\n`;
-  if ((sale.discount || 0) > 0) msg += `Discount: — ₹${sale.discount.toFixed(2)}\n`;
-  msg += `*Balance Due: ₹${(sale.balanceDue || 0).toFixed(2)}*\n\n`;
-  msg += `Goods once sold will not be exchanged.\n${siteConfig.shopAddress}`;
-  return msg;
-};
+import { downloadInvoicePDF, shareInvoiceToWhatsApp } from "../../utils/invoicePDF";
 
 const SaleDetailModal = ({ sale, onClose, gstNumber }) => {
   if (!sale) return null;
@@ -74,141 +46,56 @@ const SaleDetailModal = ({ sale, onClose, gstNumber }) => {
     });
   };
 
-  const handleWhatsApp = () => {
-    const mobile = (sale.customerMobile || "").replace(/\D/g, "");
-    const waNumber = mobile.startsWith("91") ? mobile : `91${mobile}`;
-    const text = buildWhatsAppMessage(sale);
-    window.open(`https://wa.me/${waNumber}?text=${encodeURIComponent(text)}`, "_blank");
+  const handleWhatsApp = async () => {
+    await shareInvoiceToWhatsApp(
+      {
+        invoiceNumber: sale.invoiceNumber,
+        invoiceDate,
+        customerName: sale.customerName,
+        customerAddress: sale.customerAddress,
+        customerMobile: sale.customerMobile,
+        oldGoldWeight: sale.oldGoldWeight || 0,
+        items: sale.items,
+        itemsSubtotal: sale.subtotal || 0,
+        totalMakingCharges: sale.totalMakingCharges || 0,
+        applyGst: hasGst,
+        cgstAmount: sale.cgstAmount || 0,
+        sgstAmount: sale.sgstAmount || 0,
+        grandTotal: sale.totalAmount || 0,
+        advancePayment: sale.advancePayment || 0,
+        discount: sale.discount || 0,
+        balanceDue: sale.balanceDue || 0,
+        gstin: gstNumber,
+      },
+      {
+        onFallback: () =>
+          toast.info("PDF downloaded — open WhatsApp and attach it to send.", {
+            autoClose: 6000,
+          }),
+      }
+    );
   };
 
-  const handleDownloadPDF = () => {
-    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-    const MARGIN = 15;
-    const PAGE_W = 210;
-
-    // Header
-    doc.setFont("Helvetica", "bold");
-    doc.setFontSize(16);
-    doc.text(siteConfig.shopName, PAGE_W / 2, 20, { align: "center" });
-    doc.setFont("Helvetica", "normal");
-    doc.setFontSize(9);
-    doc.text("सोने चांदीचे व्यापारी", PAGE_W / 2, 26, { align: "center" });
-    doc.text(`${siteConfig.ownerName} | Mo: ${siteConfig.ownerMobile}`, PAGE_W / 2, 31, { align: "center" });
-    doc.text(siteConfig.shopAddress, PAGE_W / 2, 36, { align: "center" });
-    if (hasGst && displayGstNumber) {
-      doc.setFont("Helvetica", "bold");
-      doc.text(`GSTIN: ${displayGstNumber}`, PAGE_W / 2, 41, { align: "center" });
-    }
-
-    // Divider
-    doc.setLineWidth(0.5);
-    doc.line(MARGIN, 44, PAGE_W - MARGIN, 44);
-
-    // Invoice title
-    doc.setFont("Helvetica", "bold");
-    doc.setFontSize(11);
-    doc.text("TAX INVOICE", PAGE_W / 2, 51, { align: "center" });
-
-    // Customer + Invoice details
-    doc.setFont("Helvetica", "normal");
-    doc.setFontSize(9);
-    doc.text(`Invoice #: ${sale.invoiceNumber}`, MARGIN, 59);
-    doc.text(`Date: ${invoiceDate}`, PAGE_W - MARGIN, 59, { align: "right" });
-    doc.text(`Name: ${sale.customerName || "Walk-in Customer"}`, MARGIN, 65);
-    doc.text(`Mobile: ${sale.customerMobile || "—"}`, PAGE_W - MARGIN, 65, { align: "right" });
-    if (sale.customerAddress) {
-      doc.text(`Address: ${sale.customerAddress}`, MARGIN, 71);
-    }
-    if ((sale.oldGoldWeight || 0) > 0) {
-      doc.setTextColor(180, 100, 0);
-      doc.text(`Old Gold: ${sale.oldGoldWeight}g`, PAGE_W - MARGIN, 71, { align: "right" });
-      doc.setTextColor(0, 0, 0);
-    }
-
-    // Items table
-    const tableRows = sale.items.map((item, idx) => {
-      const wt = (item.sellingWeight || 0) * item.quantity;
-      const lineTotal = getLineTotal(item);
-      return [
-        idx + 1,
-        item.quantity > 1 ? `${item.name} ×${item.quantity}` : item.name,
-        item.sellingPurity || "—",
-        wt.toFixed(3),
-        `₹${(item.sellingPricePerGram || 0).toFixed(2)}`,
-        `₹${(item.makingChargePerGram || 0).toFixed(2)}`,
-        `₹${lineTotal.toFixed(2)}`,
-      ];
+  const handleDownloadPDF = async () => {
+    await downloadInvoicePDF({
+      invoiceNumber: sale.invoiceNumber,
+      invoiceDate,
+      customerName: sale.customerName,
+      customerAddress: sale.customerAddress,
+      customerMobile: sale.customerMobile,
+      oldGoldWeight: sale.oldGoldWeight || 0,
+      items: sale.items,
+      itemsSubtotal: sale.subtotal || 0,
+      totalMakingCharges: sale.totalMakingCharges || 0,
+      applyGst: hasGst,
+      cgstAmount: sale.cgstAmount || 0,
+      sgstAmount: sale.sgstAmount || 0,
+      grandTotal: sale.totalAmount || 0,
+      advancePayment: sale.advancePayment || 0,
+      discount: sale.discount || 0,
+      balanceDue: sale.balanceDue || 0,
+      gstin: gstNumber,
     });
-
-    autoTable(doc, {
-      head: [["Sr.", "Item", "Purity", "Wt(g)", "Rate/g", "MC/g", "Amount"]],
-      body: tableRows,
-      startY: 77,
-      margin: { left: MARGIN, right: MARGIN },
-      theme: "grid",
-      headStyles: { fillColor: [50, 50, 50], fontSize: 8, fontStyle: "bold" },
-      bodyStyles: { fontSize: 8 },
-      columnStyles: {
-        0: { cellWidth: 8, halign: "center" },
-        2: { cellWidth: 16, halign: "center" },
-        3: { cellWidth: 18, halign: "right" },
-        4: { cellWidth: 22, halign: "right" },
-        5: { cellWidth: 18, halign: "right" },
-        6: { cellWidth: 24, halign: "right", fontStyle: "bold" },
-      },
-    });
-
-    // Totals
-    let y = doc.lastAutoTable.finalY + 6;
-    const lx = 145;
-    const rx = PAGE_W - MARGIN;
-    const lh = 5.5;
-
-    const addRow = (label, value, bold = false, color = [0, 0, 0]) => {
-      doc.setFont("Helvetica", bold ? "bold" : "normal");
-      doc.setFontSize(bold ? 10 : 9);
-      doc.setTextColor(...color);
-      doc.text(label, lx, y, { align: "right" });
-      doc.text(value, rx, y, { align: "right" });
-      y += lh;
-    };
-
-    doc.setTextColor(0, 0, 0);
-    addRow("Metal Value:", `₹${(sale.subtotal || 0).toFixed(2)}`);
-    addRow("Making Charges:", `₹${(sale.totalMakingCharges || 0).toFixed(2)}`);
-    if (hasGst) {
-      addRow("CGST:", `₹${(sale.cgstAmount || 0).toFixed(2)}`);
-      addRow("SGST:", `₹${(sale.sgstAmount || 0).toFixed(2)}`);
-    }
-    doc.setLineWidth(0.3);
-    doc.line(lx - 10, y - 1, rx, y - 1);
-    addRow("Total (एकूण):", `₹${(sale.totalAmount || 0).toFixed(2)}`, true);
-    if ((sale.advancePayment || 0) > 0) addRow("Advance:", `— ₹${sale.advancePayment.toFixed(2)}`, false, [0, 120, 0]);
-    if ((sale.discount || 0) > 0) addRow("Discount:", `— ₹${sale.discount.toFixed(2)}`, false, [120, 0, 120]);
-    doc.setLineWidth(0.5);
-    doc.line(lx - 10, y - 1, rx, y - 1);
-    addRow("Balance Due:", `₹${(sale.balanceDue || 0).toFixed(2)}`, true, [0, 0, 180]);
-
-    // Signature lines
-    y += 12;
-    doc.setTextColor(0, 0, 0);
-    doc.setFont("Helvetica", "normal");
-    doc.setFontSize(9);
-    doc.line(MARGIN, y, MARGIN + 60, y);
-    doc.line(PAGE_W - MARGIN - 60, y, PAGE_W - MARGIN, y);
-    y += 4;
-    doc.text("Customer Signature", MARGIN + 30, y, { align: "center" });
-    doc.text("Authorized Signatory", PAGE_W - MARGIN - 30, y, { align: "center" });
-
-    // Footer
-    y += 10;
-    doc.setFontSize(8);
-    doc.setTextColor(100, 100, 100);
-    doc.text("Thank you for your business! Goods once sold will not be taken back or exchanged.", PAGE_W / 2, y, { align: "center" });
-    doc.text(siteConfig.shopAddress, PAGE_W / 2, y + 4, { align: "center" });
-
-    const fileName = `Invoice_${sale.invoiceNumber}_${(sale.customerName || "Customer").replace(/\s+/g, "_")}.pdf`;
-    doc.save(fileName);
   };
 
   return (
@@ -319,23 +206,23 @@ const SaleDetailModal = ({ sale, onClose, gstNumber }) => {
               </>
             )}
             <div className="flex justify-between font-bold text-base border-t-2 border-gray-800 pt-2">
-              <span>Total (एकूण)</span>
+              <span>Grand Total</span>
               <span>₹{(sale.totalAmount || 0).toFixed(2)}</span>
             </div>
             {(sale.advancePayment || 0) > 0 && (
               <div className="flex justify-between text-green-700">
-                <span>Advance / Old Gold (नगदी जमा)</span>
+                <span>Advance Paid</span>
                 <span>– ₹{sale.advancePayment.toFixed(2)}</span>
               </div>
             )}
             {(sale.discount || 0) > 0 && (
               <div className="flex justify-between text-purple-700">
-                <span>Discount (सूट)</span>
+                <span>Discount</span>
                 <span>– ₹{sale.discount.toFixed(2)}</span>
               </div>
             )}
             <div className="flex justify-between font-extrabold text-lg text-blue-700 border-t-2 border-blue-700 pt-2">
-              <span>Balance Due (बाकी येणे)</span>
+              <span>Net Payable</span>
               <span>₹{(sale.balanceDue || 0).toFixed(2)}</span>
             </div>
           </div>

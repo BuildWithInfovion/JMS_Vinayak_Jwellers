@@ -86,7 +86,7 @@ export const printInvoice = ({
   const advanceBlock =
     (advancePayment || 0) > 0
       ? `<tr>
-           <td class="tlabel" style="color:#14532d;">Advance / Old Gold &nbsp;<span style="font-size:8pt;">(&#2344;&#2327;&#2342;&#2368; &#2332;&#2350;&#2366;)</span></td>
+           <td class="tlabel" style="color:#14532d;">Advance Paid</td>
            <td class="tvalue" style="color:#14532d;">&minus; ${rs(advancePayment)}</td>
          </tr>`
       : "";
@@ -94,7 +94,7 @@ export const printInvoice = ({
   const discountBlock =
     (discount || 0) > 0
       ? `<tr>
-           <td class="tlabel" style="color:#581c87;">Discount &nbsp;<span style="font-size:8pt;">(&#2360;&#2370;&#2335;)</span></td>
+           <td class="tlabel" style="color:#581c87;">Discount</td>
            <td class="tvalue" style="color:#581c87;">&minus; ${rs(discount)}</td>
          </tr>`
       : "";
@@ -411,13 +411,13 @@ export const printInvoice = ({
     </tr>
     ${gstBlock}
     <tr class="grand-total-row">
-      <td class="tlabel">Total &nbsp;<span style="font-size:9pt;">(&#2319;&#2325;&#2370;&#2339;)</span></td>
+      <td class="tlabel">Grand Total</td>
       <td class="tvalue">${rs(grandTotal)}</td>
     </tr>
     ${advanceBlock}
     ${discountBlock}
     <tr class="balance-row">
-      <td class="tlabel">Balance Due &nbsp;<span style="font-size:8.5pt;">(&#2348;&#2366;&#2325;&#2368; &#2351;&#2375;&#2339;&#2375;)</span></td>
+      <td class="tlabel">Net Payable</td>
       <td class="tvalue">${rs(balanceDue)}</td>
     </tr>
   </table>

@@ -1,30 +1,9 @@
 import React from "react";
 import { FaTimes, FaPrint, FaCheckCircle, FaWhatsapp } from "react-icons/fa";
+import { toast } from "react-toastify";
 import { siteConfig } from "../../utils/siteConfig";
 import { printInvoice } from "../../utils/printInvoice";
-
-const buildWhatsAppMessage = ({ invoiceNumber, items, customerName, itemsSubtotal, totalMakingCharges, cgstAmount, sgstAmount, grandTotal, advancePayment, discount, balanceDue, applyGst }) => {
-  const date = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" });
-  const name = customerName || "Customer";
-
-  const itemLines = items.map((item) => {
-    const wt = (item.sellingWeight || 0) * item.quantity;
-    const amt = (wt * (item.sellingPricePerGram || 0)) + (wt * (item.makingChargePerGram || 0));
-    return `• ${item.name}${item.quantity > 1 ? ` ×${item.quantity}` : ""} (${wt.toFixed(3)}g) — ₹${amt.toFixed(2)}`;
-  }).join("\n");
-
-  let msg = `*${siteConfig.shopName}*\nInvoice #${invoiceNumber} | ${date}\n\nDear ${name},\nThank you for your purchase!\n\n*Items:*\n${itemLines}\n\n`;
-  msg += `Metal Value: ₹${itemsSubtotal.toFixed(2)}\nMaking Charges: ₹${totalMakingCharges.toFixed(2)}\n`;
-  if (applyGst) {
-    msg += `CGST: ₹${cgstAmount.toFixed(2)}\nSGST: ₹${sgstAmount.toFixed(2)}\n`;
-  }
-  msg += `*Total: ₹${grandTotal.toFixed(2)}*\n`;
-  if ((advancePayment || 0) > 0) msg += `Advance Paid: — ₹${(advancePayment || 0).toFixed(2)}\n`;
-  if ((discount || 0) > 0) msg += `Discount: — ₹${(discount || 0).toFixed(2)}\n`;
-  msg += `*Balance Due: ₹${balanceDue.toFixed(2)}*\n\n`;
-  msg += `Goods once sold will not be exchanged.\n${siteConfig.shopAddress}`;
-  return msg;
-};
+import { shareInvoiceToWhatsApp } from "../../utils/invoicePDF";
 
 const InvoicePreview = ({
   items,
@@ -104,24 +83,33 @@ const InvoicePreview = ({
     });
   };
 
-  const handleWhatsApp = () => {
-    const mobile = (customerMobile || "").replace(/\D/g, "");
-    const waNumber = mobile.startsWith("91") ? mobile : `91${mobile}`;
-    const text = buildWhatsAppMessage({
-      invoiceNumber: confirmedSaleData?.invoiceNumber,
-      items,
-      customerName,
-      itemsSubtotal,
-      totalMakingCharges,
-      cgstAmount,
-      sgstAmount,
-      grandTotal,
-      advancePayment,
-      discount,
-      balanceDue,
-      applyGst,
-    });
-    window.open(`https://wa.me/${waNumber}?text=${encodeURIComponent(text)}`, "_blank");
+  const handleWhatsApp = async () => {
+    await shareInvoiceToWhatsApp(
+      {
+        invoiceNumber: confirmedSaleData?.invoiceNumber ?? null,
+        customerName,
+        customerAddress,
+        customerMobile,
+        oldGoldWeight,
+        items,
+        itemsSubtotal,
+        totalMakingCharges,
+        applyGst,
+        cgstAmount,
+        sgstAmount,
+        grandTotal,
+        advancePayment,
+        discount,
+        balanceDue,
+        gstin: gstNumber,
+      },
+      {
+        onFallback: () =>
+          toast.info("PDF downloaded — open WhatsApp and attach it to send.", {
+            autoClose: 6000,
+          }),
+      }
+    );
   };
 
   const invoiceDate = new Date().toLocaleDateString("en-IN", {
@@ -264,25 +252,25 @@ const InvoicePreview = ({
             ) : null}
 
             <div className="flex justify-between font-bold text-base border-t-2 border-gray-800 pt-2 mt-1">
-              <span>Total (एकूण)</span>
+              <span>Grand Total</span>
               <span>₹{grandTotal.toFixed(2)}</span>
             </div>
 
             {(advancePayment || 0) > 0 && (
               <div className="flex justify-between text-green-700">
-                <span>Advance / Old Gold (नगदी जमा)</span>
+                <span>Advance Paid</span>
                 <span>– ₹{(advancePayment || 0).toFixed(2)}</span>
               </div>
             )}
             {(discount || 0) > 0 && (
               <div className="flex justify-between text-purple-700">
-                <span>Discount (सूट)</span>
+                <span>Discount</span>
                 <span>– ₹{(discount || 0).toFixed(2)}</span>
               </div>
             )}
 
             <div className="flex justify-between font-extrabold text-lg text-blue-700 border-t-2 border-blue-700 pt-2 mt-1">
-              <span>Balance Due (बाकी येणे)</span>
+              <span>Net Payable</span>
               <span>₹{balanceDue.toFixed(2)}</span>
             </div>
           </div>
