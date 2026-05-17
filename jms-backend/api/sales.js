@@ -85,6 +85,11 @@ router.post("/", async (req, res) => {
           );
         }
         product.weight -= item.sellingWeight;
+        // Sync stock to 0 when weight depletes so availability is consistent
+        if (product.weight <= 0) {
+          product.weight = 0;
+          product.stock = 0;
+        }
       }
 
       await product.save({ session });

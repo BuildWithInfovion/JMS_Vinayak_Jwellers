@@ -133,9 +133,16 @@ router.put("/:id/restock", authMiddleware, async (req, res) => {
       return res.status(404).json({ message: "Product not found." });
     }
 
-    // Add the new amounts to the existing totals
-    product.weight += parsedWeightToAdd;
-    product.stock += parsedQuantityToAdd;
+    // Add stock — logic differs by product type
+    if (product.type === "bulk_weight") {
+      // For bulk_weight, inventory is tracked purely by weight.
+      // quantityToAdd is ignored; stock mirrors weight availability.
+      product.weight += parsedWeightToAdd;
+      product.stock = product.weight > 0 ? 1 : 0;
+    } else {
+      product.weight += parsedWeightToAdd;
+      product.stock += parsedQuantityToAdd;
+    }
 
     const updatedProduct = await product.save();
 

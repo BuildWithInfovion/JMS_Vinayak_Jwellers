@@ -68,7 +68,7 @@ const ProductTable = ({ products, onEdit, onDelete, onRestock }) => {
               scope="col"
               className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
             >
-              Stock
+              Stock / Avail. Wt.
             </th>
             <th
               scope="col"
@@ -112,8 +112,20 @@ const ProductTable = ({ products, onEdit, onDelete, onRestock }) => {
               <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                 {product.weight.toFixed(2)}
               </td>
-              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                {product.stock}
+              <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
+                {product.type === "bulk_weight" ? (
+                  product.weight > 0 ? (
+                    <span className="text-green-600">{product.weight.toFixed(3)}g</span>
+                  ) : (
+                    <span className="text-red-500">Out of Stock</span>
+                  )
+                ) : (
+                  product.stock > 0 ? (
+                    <span className="text-green-600">{product.stock} pcs</span>
+                  ) : (
+                    <span className="text-red-500">Out of Stock</span>
+                  )
+                )}
               </td>
               <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                 {formatDate(product.createdAt)}
