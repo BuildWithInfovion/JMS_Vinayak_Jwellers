@@ -2,6 +2,7 @@ import React from "react";
 import { FaPrint, FaWhatsapp } from "react-icons/fa";
 import { FiDownload, FiX } from "react-icons/fi";
 import { siteConfig } from "../../utils/siteConfig";
+import { printInvoice } from "../../utils/printInvoice";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -49,7 +50,29 @@ const SaleDetailModal = ({ sale, onClose, gstNumber }) => {
     return (wt * (item.sellingPricePerGram || 0)) + (wt * (item.makingChargePerGram || 0));
   };
 
-  const handlePrint = () => window.print();
+  const handlePrint = () => {
+    printInvoice({
+      invoiceNumber: sale.invoiceNumber,
+      invoiceDate: new Date(sale.createdAt).toLocaleDateString("en-IN", {
+        day: "2-digit", month: "2-digit", year: "numeric",
+      }),
+      customerName: sale.customerName,
+      customerAddress: sale.customerAddress,
+      customerMobile: sale.customerMobile,
+      oldGoldWeight: sale.oldGoldWeight || 0,
+      items: sale.items,
+      itemsSubtotal: sale.subtotal || 0,
+      totalMakingCharges: sale.totalMakingCharges || 0,
+      applyGst: (sale.gstAmount || 0) > 0,
+      cgstAmount: sale.cgstAmount || 0,
+      sgstAmount: sale.sgstAmount || 0,
+      grandTotal: sale.totalAmount || 0,
+      advancePayment: sale.advancePayment || 0,
+      discount: sale.discount || 0,
+      balanceDue: sale.balanceDue || 0,
+      gstin: gstNumber,
+    });
+  };
 
   const handleWhatsApp = () => {
     const mobile = (sale.customerMobile || "").replace(/\D/g, "");

@@ -1,6 +1,7 @@
 import React from "react";
 import { FaTimes, FaPrint, FaCheckCircle, FaWhatsapp } from "react-icons/fa";
 import { siteConfig } from "../../utils/siteConfig";
+import { printInvoice } from "../../utils/printInvoice";
 
 const buildWhatsAppMessage = ({ invoiceNumber, items, customerName, itemsSubtotal, totalMakingCharges, cgstAmount, sgstAmount, grandTotal, advancePayment, discount, balanceDue, applyGst }) => {
   const date = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" });
@@ -83,7 +84,24 @@ const InvoicePreview = ({
   };
 
   const handlePrint = () => {
-    window.print();
+    printInvoice({
+      invoiceNumber: confirmedSaleData?.invoiceNumber ?? null,
+      customerName,
+      customerAddress,
+      customerMobile,
+      oldGoldWeight,
+      items,
+      itemsSubtotal,
+      totalMakingCharges,
+      applyGst,
+      cgstAmount,
+      sgstAmount,
+      grandTotal,
+      advancePayment,
+      discount,
+      balanceDue,
+      gstin: gstNumber,
+    });
   };
 
   const handleWhatsApp = () => {
