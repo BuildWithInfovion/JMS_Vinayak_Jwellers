@@ -1,4 +1,5 @@
 import React from "react";
+import { computeBill } from "../../utils/billing";
 
 const Cart = ({
   items,
@@ -13,23 +14,9 @@ const Cart = ({
   onUpdateWeight,
   onUpdatePurity,
   onUpdateMakingCharge,
+  onUpdateHuid,
 }) => {
-  const itemsSubtotal = items.reduce((total, item) => {
-    return total + (item.sellingWeight || 0) * (item.sellingPricePerGram || 0) * item.quantity;
-  }, 0);
-
-  const totalMakingCharges = items.reduce((total, item) => {
-    return total + (item.sellingWeight || 0) * (item.makingChargePerGram || 0) * item.quantity;
-  }, 0);
-
-  const cgstAmount = applyGst
-    ? itemsSubtotal * 0.015 + totalMakingCharges * 0.025
-    : 0;
-  const sgstAmount = cgstAmount;
-  const gstAmount = cgstAmount + sgstAmount;
-
-  const grandTotal = itemsSubtotal + totalMakingCharges + gstAmount;
-  const balanceDue = grandTotal - (advancePayment || 0) - (discount || 0);
+  const bill = computeBill(items, { discount, advance: advancePayment, applyGst });
 
   return (
     <div className="bg-white shadow rounded-lg p-4 flex flex-col h-full">
@@ -44,13 +31,14 @@ const Cart = ({
               <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">Purity</th>
               <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">Rate/g</th>
               <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">MC/g</th>
+              <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase" title="Hallmark Unique ID (6 characters), optional">HUID</th>
               <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {items.length === 0 ? (
               <tr>
-                <td colSpan="7" className="text-center py-10 text-gray-500">Cart is empty</td>
+                <td colSpan="8" className="text-center py-10 text-gray-500">Cart is empty</td>
               </tr>
             ) : (
               items.map((item) => (
@@ -88,6 +76,12 @@ const Cart = ({
                       onChange={(e) => onUpdateMakingCharge(item._id, parseFloat(e.target.value) || 0)} />
                   </td>
                   <td className="px-2 py-2">
+                    <input type="text" maxLength={6} placeholder="—" aria-label={`HUID for ${item.name}`}
+                      className={`w-20 border rounded px-1 text-sm uppercase ${item.huid && !/^[A-Z0-9]{6}$/.test(item.huid) ? "border-red-400" : ""}`}
+                      value={item.huid || ""}
+                      onChange={(e) => onUpdateHuid(item._id, e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))} />
+                  </td>
+                  <td className="px-2 py-2">
                     <button onClick={() => onRemove(item._id)} className="text-red-500 hover:text-red-700 text-sm">Remove</button>
                   </td>
                 </tr>
@@ -101,39 +95,45 @@ const Cart = ({
       <div className="border-t mt-4 pt-4 space-y-2">
         <div className="flex justify-between text-sm text-gray-600">
           <span>Metal Value</span>
-          <span>₹{itemsSubtotal.toFixed(2)}</span>
+          <span>₹{bill.metal.toFixed(2)}</span>
         </div>
         <div className="flex justify-between text-sm text-gray-600">
           <span>Making Charges</span>
-          <span>₹{totalMakingCharges.toFixed(2)}</span>
+          <span>₹{bill.making.toFixed(2)}</span>
         </div>
+        {bill.discount > 0 && (
+          <div className="flex justify-between text-sm">
+            <span>Discount (सूट)</span>
+            <span className="text-purple-600">- ₹{bill.discount.toFixed(2)}</span>
+          </div>
+        )}
         {applyGst && (
           <>
+            <div className="flex justify-between text-sm text-gray-600 border-t pt-1">
+              <span>Taxable Value</span>
+              <span>₹{bill.taxable.toFixed(2)}</span>
+            </div>
             <div className="flex justify-between text-sm text-gray-700">
               <span>CGST</span>
-              <span>₹{cgstAmount.toFixed(2)}</span>
+              <span>₹{bill.cgst.toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-sm text-gray-700">
               <span>SGST</span>
-              <span>₹{sgstAmount.toFixed(2)}</span>
+              <span>₹{bill.sgst.toFixed(2)}</span>
             </div>
           </>
         )}
         <div className="flex justify-between font-bold text-lg border-t pt-1">
           <span>Total (एकूण)</span>
-          <span>₹{grandTotal.toFixed(2)}</span>
+          <span>₹{bill.total.toFixed(2)}</span>
         </div>
         <div className="flex justify-between text-sm">
           <span>Advance / Old Gold (नगदी जमा)</span>
-          <span className="text-green-600">- ₹{(advancePayment || 0).toFixed(2)}</span>
-        </div>
-        <div className="flex justify-between text-sm">
-          <span>Discount (सूट)</span>
-          <span className="text-purple-600">- ₹{(discount || 0).toFixed(2)}</span>
+          <span className="text-green-600">- ₹{bill.advance.toFixed(2)}</span>
         </div>
         <div className="flex justify-between font-bold text-xl text-blue-600 border-t pt-2">
           <span>Balance Due (बाकी येणे)</span>
-          <span>₹{balanceDue.toFixed(2)}</span>
+          <span>₹{bill.balance.toFixed(2)}</span>
         </div>
 
         <button

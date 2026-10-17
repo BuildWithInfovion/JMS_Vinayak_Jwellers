@@ -21,6 +21,9 @@ const gahanSchema = new mongoose.Schema(
       required: true,
     },
     releaseDate: { type: Date },
+    // What was collected when the pledge was released
+    interestReceived: { type: Number, default: 0 },
+    amountReceived: { type: Number, default: 0 },
     notes: { type: String },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   },

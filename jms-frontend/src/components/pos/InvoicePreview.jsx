@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import { siteConfig } from "../../utils/siteConfig";
 import { printInvoice } from "../../utils/printInvoice";
 import { shareInvoiceToWhatsApp } from "../../utils/invoicePDF";
+import { computeBill, taxPresentation } from "../../utils/billing";
 
 const InvoicePreview = ({
   items,
@@ -23,24 +24,12 @@ const InvoicePreview = ({
 }) => {
   const isConfirmed = !!confirmedSaleData;
 
-  // Base calculations
-  const itemsSubtotal = items.reduce((total, item) => {
-    return total + (item.sellingWeight || 0) * (item.sellingPricePerGram || 0) * item.quantity;
-  }, 0);
-
-  const totalMakingCharges = items.reduce((total, item) => {
-    return total + (item.sellingWeight || 0) * (item.makingChargePerGram || 0) * item.quantity;
-  }, 0);
-
-  // GST: Metal @ 3% (1.5% CGST + 1.5% SGST), Making @ 5% (2.5% CGST + 2.5% SGST)
-  const cgstAmount = applyGst
-    ? itemsSubtotal * 0.015 + totalMakingCharges * 0.025
-    : 0;
-  const sgstAmount = cgstAmount;
-  const gstAmount = cgstAmount + sgstAmount;
-
-  const grandTotal = itemsSubtotal + totalMakingCharges + gstAmount;
-  const balanceDue = grandTotal - (advancePayment || 0) - (discount || 0);
+  // All amounts come from the shared billing rules (discount before GST)
+  const bill = computeBill(items, { discount, advance: advancePayment, applyGst });
+  const { rateLabel } = taxPresentation(bill);
+  const itemsSubtotal = bill.metal;
+  const totalMakingCharges = bill.making;
+  const { cgst: cgstAmount, sgst: sgstAmount, gst: gstAmount, total: grandTotal, balance: balanceDue } = bill;
 
   const handleConfirmClick = () => {
     if (isSaving) return;
@@ -49,6 +38,7 @@ const InvoicePreview = ({
       totalAmount: grandTotal,
       subtotal: itemsSubtotal,
       totalMakingCharges,
+      taxableAmount: bill.taxable,
       gstAmount,
       cgstAmount,
       sgstAmount,
@@ -57,8 +47,11 @@ const InvoicePreview = ({
       customerName,
       customerAddress,
       customerMobile,
-      discount,
+      discount: bill.discount,
       oldGoldWeight,
+      taxMode: bill.taxMode,
+      gstMetalRate: bill.gstMetalRate,
+      gstMakingRate: bill.gstMakingRate,
     });
   };
 
@@ -77,9 +70,11 @@ const InvoicePreview = ({
       sgstAmount,
       grandTotal,
       advancePayment,
-      discount,
+      discount: bill.discount,
       balanceDue,
       gstin: gstNumber,
+      discountBeforeTax: true,
+      rateLabel,
     });
   };
 
@@ -99,9 +94,11 @@ const InvoicePreview = ({
         sgstAmount,
         grandTotal,
         advancePayment,
-        discount,
+        discount: bill.discount,
         balanceDue,
         gstin: gstNumber,
+        discountBeforeTax: true,
+        rateLabel,
       },
       {
         onFallback: () =>
@@ -138,11 +135,11 @@ const InvoicePreview = ({
 
         {/* ── Shop Header ── */}
         <div className="text-center mb-6 pb-5 border-b-2 border-gray-300">
-          <img src="/VJ.png" alt="Logo" className="h-16 w-auto mx-auto mb-2" />
+          <img src={siteConfig.shopLogo} alt="" className="h-16 w-auto mx-auto mb-2" />
           <h1 className="text-2xl font-extrabold text-gray-900 tracking-wide">
             {siteConfig.shopName}
           </h1>
-          <p className="text-base text-gray-500 mt-0.5">सोने चांदीचे व्यापारी</p>
+          {siteConfig.shopTagline && <p className="text-base text-gray-500 mt-0.5">{siteConfig.shopTagline}</p>}
           <p className="text-sm text-gray-600 mt-1">
             {siteConfig.ownerName} &nbsp;|&nbsp; Mo: {siteConfig.ownerMobile}
           </p>
@@ -210,6 +207,7 @@ const InvoicePreview = ({
                     {item.quantity > 1 && (
                       <span className="ml-1 text-xs text-gray-500">(×{item.quantity})</span>
                     )}
+                    {item.huid && <span className="block text-xs text-gray-500">HUID: {item.huid}</span>}
                   </td>
                   <td className="py-2.5 px-3 text-center text-gray-600">{item.sellingPurity || "—"}</td>
                   <td className="py-2.5 px-3 text-right text-gray-700">{(wt * item.quantity).toFixed(3)}</td>
@@ -234,38 +232,39 @@ const InvoicePreview = ({
               <span>₹{totalMakingCharges.toFixed(2)}</span>
             </div>
 
+            {bill.discount > 0 && (
+              <div className="flex justify-between text-purple-700">
+                <span>Less: Discount</span>
+                <span>– ₹{bill.discount.toFixed(2)}</span>
+              </div>
+            )}
+
             {applyGst ? (
               <>
                 <div className="border-t border-gray-200 pt-1.5 flex justify-between text-gray-600">
-                  <span>Taxable Amount</span>
-                  <span>₹{(itemsSubtotal + totalMakingCharges).toFixed(2)}</span>
+                  <span>Taxable Value</span>
+                  <span>₹{bill.taxable.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-gray-700">
-                  <span>CGST <span className="text-xs text-gray-400">(Metal 1.5% + MC 2.5%)</span></span>
+                  <span>CGST <span className="text-xs text-gray-400">{rateLabel}</span></span>
                   <span>₹{cgstAmount.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-gray-700">
-                  <span>SGST <span className="text-xs text-gray-400">(Metal 1.5% + MC 2.5%)</span></span>
+                  <span>SGST <span className="text-xs text-gray-400">{rateLabel}</span></span>
                   <span>₹{sgstAmount.toFixed(2)}</span>
                 </div>
               </>
             ) : null}
 
             <div className="flex justify-between font-bold text-base border-t-2 border-gray-800 pt-2 mt-1">
-              <span>Grand Total</span>
+              <span>Invoice Total</span>
               <span>₹{grandTotal.toFixed(2)}</span>
             </div>
 
             {(advancePayment || 0) > 0 && (
               <div className="flex justify-between text-green-700">
-                <span>Advance Paid</span>
+                <span>Advance / Old Gold</span>
                 <span>– ₹{(advancePayment || 0).toFixed(2)}</span>
-              </div>
-            )}
-            {(discount || 0) > 0 && (
-              <div className="flex justify-between text-purple-700">
-                <span>Discount</span>
-                <span>– ₹{(discount || 0).toFixed(2)}</span>
               </div>
             )}
 

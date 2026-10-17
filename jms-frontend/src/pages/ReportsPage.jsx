@@ -3,6 +3,8 @@ import React, { useState, useEffect, useMemo } from "react";
 import { getSales, getSettings } from "../services/api";
 import Modal from "../components/common/Modal";
 import SaleDetailModal from "../components/reports/SaleDetailModal";
+import CaExportPanel from "../components/reports/CaExportPanel";
+import { useAuth } from "../context/useAuth";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
@@ -15,6 +17,7 @@ import {
 } from "react-icons/fi";
 
 const ReportsPage = () => {
+  const { user } = useAuth();
   const [sales, setSales] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchInvoice, setSearchInvoice] = useState("");
@@ -248,6 +251,8 @@ const ReportsPage = () => {
             <span className="font-semibold">Download PDF</span>
           </button>
         </div>
+
+        {user?.role === "owner" && <CaExportPanel />}
 
         {/* Stats Cards - Only 2 Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">

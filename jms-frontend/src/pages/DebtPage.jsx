@@ -18,6 +18,7 @@ const DebtPage = () => {
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
   const [selectedDebt, setSelectedDebt] = useState(null);
   const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("Cash");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newDebtData, setNewDebtData] = useState({
     customerName: "",
@@ -85,7 +86,8 @@ const DebtPage = () => {
 
     setIsSubmitting(true);
     try {
-      await addDebtPayment(selectedDebt._id, amount);
+      await addDebtPayment(selectedDebt._id, amount, paymentMethod);
+      setPaymentMethod("Cash");
       toast.success(
         `Payment of ₹${amount} for ${selectedDebt.customerName} successful!`
       );
@@ -385,6 +387,20 @@ const DebtPage = () => {
                   autoFocus
                   required
                 />
+              </div>
+
+              <div>
+                <label htmlFor="paymentMethod" className="block text-sm font-semibold text-gray-700 mb-2">
+                  Paid by
+                </label>
+                <select
+                  id="paymentMethod"
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  className="block w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-green-500"
+                >
+                  {["Cash", "UPI", "Card", "Bank Transfer", "Cheque"].map((m) => <option key={m}>{m}</option>)}
+                </select>
               </div>
             </div>
             <div className="bg-gray-50 px-6 py-4 flex justify-end space-x-3">

@@ -1,6 +1,7 @@
 import { siteConfig } from "./siteConfig";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { NotoSansDevanagariBase64 } from "./NotoSansDevanagariFont";
 
 // ─── WhatsApp text ────────────────────────────────────────────────────────────
 const buildWhatsAppText = ({
@@ -17,6 +18,7 @@ const buildWhatsAppText = ({
   discount,
   balanceDue,
   applyGst,
+  discountBeforeTax = false,
 }) => {
   const date =
     invoiceDate ||
@@ -41,6 +43,8 @@ const buildWhatsAppText = ({
   msg += `*Items:*\n${itemLines}\n\n`;
   msg += `Metal Value: ₹${(itemsSubtotal || 0).toFixed(2)}\n`;
   msg += `Making Charges: ₹${(totalMakingCharges || 0).toFixed(2)}\n`;
+  if (discountBeforeTax && (discount || 0) > 0)
+    msg += `Discount: — ₹${Number(discount).toFixed(2)}\n`;
   if (applyGst) {
     msg += `CGST: ₹${(cgstAmount || 0).toFixed(2)}\n`;
     msg += `SGST: ₹${(sgstAmount || 0).toFixed(2)}\n`;
@@ -48,7 +52,7 @@ const buildWhatsAppText = ({
   msg += `*Total: ₹${(grandTotal || 0).toFixed(2)}*\n`;
   if ((advancePayment || 0) > 0)
     msg += `Advance Paid: — ₹${Number(advancePayment).toFixed(2)}\n`;
-  if ((discount || 0) > 0)
+  if (!discountBeforeTax && (discount || 0) > 0)
     msg += `Discount: — ₹${Number(discount).toFixed(2)}\n`;
   msg += `*Balance Due: ₹${(balanceDue || 0).toFixed(2)}*\n\n`;
   msg += `Goods once sold will not be exchanged.\n${siteConfig.shopAddress}`;
@@ -72,7 +76,7 @@ const loadLogoDataUrl = () =>
       }
     };
     img.onerror = () => resolve(null);
-    img.src = `${window.location.origin}/VJ.png`;
+    img.src = siteConfig.shopLogo.startsWith("http") ? siteConfig.shopLogo : `${window.location.origin}${siteConfig.shopLogo}`;
   });
 
 // ─── Core PDF builder ─────────────────────────────────────────────────────────
@@ -95,6 +99,9 @@ const buildPDFDoc = async (data) => {
     discount,
     balanceDue,
     gstin,
+    // Invoices made before v2 deducted the discount after GST at Metal 1.5% + MC 2.5% (per CGST/SGST)
+    discountBeforeTax = false,
+    rateLabel = "(Metal@1.5% + MC@2.5%)",
   } = data;
 
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -130,7 +137,18 @@ const buildPDFDoc = async (data) => {
 
   doc.setFont("Helvetica", "normal");
   doc.setFontSize(9);
-  doc.text("सोने चांदीचे व्यापारी", textX, y + 10);
+  // Helvetica has no Devanagari glyphs: a Marathi/Hindi tagline needs the Noto font or it prints as garbage
+  if (siteConfig.shopTagline) {
+    if (/[ऀ-ॿ]/.test(siteConfig.shopTagline)) {
+      doc.addFileToVFS("NotoSansDevanagari-Regular.ttf", NotoSansDevanagariBase64);
+      doc.addFont("NotoSansDevanagari-Regular.ttf", "NotoSansDevanagari", "normal");
+      doc.setFont("NotoSansDevanagari", "normal");
+      doc.text(siteConfig.shopTagline, textX, y + 10);
+      doc.setFont("Helvetica", "normal");
+    } else {
+      doc.text(siteConfig.shopTagline, textX, y + 10);
+    }
+  }
   doc.text(`${siteConfig.ownerName}  |  Mo: ${siteConfig.ownerMobile}`, textX, y + 15);
   doc.text(siteConfig.shopAddress, textX, y + 20);
 
@@ -208,7 +226,7 @@ const buildPDFDoc = async (data) => {
     const mc = item.makingChargePerGram || 0;
     const amount = totalWt * rate + totalWt * mc;
     const nameLabel =
-      item.quantity > 1 ? `${item.name} x${item.quantity}` : item.name;
+      (item.quantity > 1 ? `${item.name} x${item.quantity}` : item.name) + (item.huid ? `\nHUID: ${item.huid}` : "");
     return [
       idx + 1,
       nameLabel,
@@ -253,7 +271,7 @@ const buildPDFDoc = async (data) => {
   const LX = 145; // label right-align x
   const RX = PW - M; // value right-align x
   const LH = 5.5;
-  const taxable = (itemsSubtotal || 0) + (totalMakingCharges || 0);
+  const taxable = (itemsSubtotal || 0) + (totalMakingCharges || 0) - (discountBeforeTax ? discount || 0 : 0);
 
   const addTotalRow = (label, value, bold = false, color = [0, 0, 0]) => {
     doc.setFont("Helvetica", bold ? "bold" : "normal");
@@ -267,13 +285,15 @@ const buildPDFDoc = async (data) => {
   doc.setTextColor(0, 0, 0);
   addTotalRow("Metal Value:", Rs(itemsSubtotal));
   addTotalRow("Making Charges:", Rs(totalMakingCharges));
+  if (discountBeforeTax && (discount || 0) > 0)
+    addTotalRow("Less: Discount:", `— ${Rs(discount)}`, false, [88, 28, 135]);
 
   if (applyGst) {
     doc.setLineWidth(0.2);
     doc.line(LX - 15, y - 1, RX, y - 1);
-    addTotalRow("Taxable Amount:", Rs(taxable));
-    addTotalRow("CGST (Metal@1.5% + MC@2.5%):", Rs(cgstAmount), false, [55, 65, 81]);
-    addTotalRow("SGST (Metal@1.5% + MC@2.5%):", Rs(sgstAmount), false, [55, 65, 81]);
+    addTotalRow("Taxable Value:", Rs(taxable));
+    addTotalRow(`CGST ${rateLabel.replace(/ /g, "")}:`, Rs(cgstAmount), false, [55, 65, 81]);
+    addTotalRow(`SGST ${rateLabel.replace(/ /g, "")}:`, Rs(sgstAmount), false, [55, 65, 81]);
   }
 
   doc.setLineWidth(0.5);
@@ -282,7 +302,7 @@ const buildPDFDoc = async (data) => {
 
   if ((advancePayment || 0) > 0)
     addTotalRow("Advance Paid:", `— ${Rs(advancePayment)}`, false, [20, 83, 45]);
-  if ((discount || 0) > 0)
+  if (!discountBeforeTax && (discount || 0) > 0)
     addTotalRow("Discount:", `— ${Rs(discount)}`, false, [88, 28, 135]);
 
   doc.setLineWidth(1);

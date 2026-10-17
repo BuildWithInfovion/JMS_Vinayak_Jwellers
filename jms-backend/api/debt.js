@@ -60,6 +60,8 @@ router.post("/", async (req, res) => {
 // POST /api/debt/:id/pay - Add a payment to a debt record
 router.post("/:id/pay", async (req, res) => {
   const { paymentAmount } = req.body;
+  // How the customer paid — keeps cash and bank separate in the Tally export
+  const method = ["Cash", "UPI", "Card", "Bank Transfer", "Cheque"].includes(req.body.method) ? req.body.method : "Cash";
   const { id } = req.params;
 
   if (!paymentAmount || isNaN(paymentAmount) || paymentAmount <= 0) {
@@ -93,6 +95,7 @@ router.post("/:id/pay", async (req, res) => {
     debt.payments.push({
       amount: newPaymentAmount,
       date: new Date(),
+      method,
     });
 
     const updatedDebt = await debt.save({ session });

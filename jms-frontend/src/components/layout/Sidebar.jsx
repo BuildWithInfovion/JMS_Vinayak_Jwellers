@@ -13,7 +13,8 @@ import {
   FiLogOut,
   FiSettings,
 } from "react-icons/fi";
-import buildwithinfovionLogo from "../../assets/buildwithinfovion-logo.svg";
+import infovionMark from "../../assets/infovion-mark.png";
+import { siteConfig, displayShopName, APP_VERSION } from "../../utils/siteConfig";
 
 const Sidebar = () => {
   const { logout, user } = useAuth();
@@ -79,14 +80,14 @@ const Sidebar = () => {
               {/* Subtle shine effect */}
               <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent"></div>
               <img
-                src="/VJ.png"
-                alt="Vinayak Jewellers"
+                src={siteConfig.shopLogo}
+                alt={siteConfig.shopName}
                 className="w-full h-full object-contain relative z-10"
               />
             </div>
             <div>
               <h1 className="text-xl font-bold text-white drop-shadow-lg leading-tight">
-                विनायक ज्वेलर्स
+                {displayShopName()}
               </h1>
             </div>
           </div>
@@ -206,7 +207,7 @@ const Sidebar = () => {
           </button>
         </div>
 
-        {/* BuildwithInfovion Branding - Frosted Glass Card */}
+        {/* Infovion Branding - Frosted Glass Card */}
         <div className="mt-6 pt-4 border-t border-white/15">
           <div className="text-center bg-white/5 backdrop-blur-lg rounded-xl p-3 border border-white/10">
             <p className="text-xs text-amber-200/60 mb-2 font-medium">
@@ -214,20 +215,19 @@ const Sidebar = () => {
             </p>
             <div className="flex items-center justify-center space-x-2.5">
               {/* Company Logo - Frosted container */}
-              <div className="w-8 h-8 bg-white/95 backdrop-blur-xl rounded-lg flex items-center justify-center shadow-lg p-1 border border-white/30 relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent"></div>
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-lg overflow-hidden bg-[#0f172a] border border-white/30">
                 <img
-                  src={buildwithinfovionLogo}
-                  alt="BuildwithInfovion"
-                  className="w-full h-full object-contain relative z-10"
+                  src={infovionMark}
+                  alt="Infovion"
+                  className="w-full h-full object-contain"
                 />
               </div>
               <p className="text-sm font-bold bg-gradient-to-r from-white to-amber-100 bg-clip-text text-transparent drop-shadow-sm">
-                BuildwithInfovion
+                Infovion JMS
               </p>
             </div>
             <p className="text-xs text-amber-200/50 mt-1.5 font-medium">
-              v1.0.0
+              v{APP_VERSION}
             </p>
           </div>
         </div>

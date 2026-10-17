@@ -6,6 +6,27 @@ const crypto = require("crypto");
 const User = require("../models/User");
 const auth = require("../middleware/authMiddleware");
 
+// Constant-time comparison for secrets
+const safeEqual = (a, b) => {
+  const x = Buffer.from(a);
+  const y = Buffer.from(b);
+  return x.length === y.length && crypto.timingSafeEqual(x, y);
+};
+
+// Simple in-memory limit: 10 attempts per 15 minutes per IP + username
+const attempts = new Map();
+function limitAttempts(req, res, next) {
+  const key = `${req.ip}|${(req.body && req.body.username) || ""}`;
+  const now = Date.now();
+  const rec = attempts.get(key) || { n: 0, start: now };
+  if (now - rec.start > 15 * 60 * 1000) { rec.n = 0; rec.start = now; }
+  rec.n += 1;
+  attempts.set(key, rec);
+  if (attempts.size > 5000) attempts.clear();
+  if (rec.n > 10) return res.status(429).json({ message: "Too many attempts. Please wait 15 minutes and try again." });
+  next();
+}
+
 // @route   POST /api/auth/register
 // @desc    Register a new user (owner or staff)
 // @access  Private — owner only
@@ -22,6 +43,13 @@ router.post("/register", auth, async (req, res) => {
     return res
       .status(400)
       .json({ message: "Please provide username, password, and role." });
+  }
+
+  if (String(password).length < 6) {
+    return res.status(400).json({ message: "Password must be at least 6 characters long." });
+  }
+  if (!["owner", "staff"].includes(role)) {
+    return res.status(400).json({ message: "Role must be owner or staff." });
   }
 
   try {
@@ -46,11 +74,8 @@ router.post("/register", auth, async (req, res) => {
 // @route   POST /api/auth/login
 // @desc    Authenticate user & get token
 // @access  Public
-router.post("/login", async (req, res) => {
+router.post("/login", limitAttempts, async (req, res) => {
   const { username, password } = req.body;
-
-  // This log MUST appear
-  console.log(`\n[DEBUG] /api/auth/login route HIT. User: ${username}`);
 
   if (!username || !password) {
     return res
@@ -61,17 +86,13 @@ router.post("/login", async (req, res) => {
   try {
     const user = await User.findOne({ username });
     if (!user) {
-      console.log("[DEBUG] Login failed: User not found.");
       return res.status(400).json({ message: "Invalid credentials." });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      console.log("[DEBUG] Login failed: Password mismatch.");
       return res.status(400).json({ message: "Invalid credentials." });
     }
-
-    console.log("[DEBUG] User authenticated. Creating JWT payload.");
 
     // Create JWT Payload
     const payload = {
@@ -86,67 +107,58 @@ router.post("/login", async (req, res) => {
 
     // This is the most likely point of failure
     if (!secret) {
-      console.error(
-        "[DEBUG] !!! CRITICAL ERROR !!! JWT_SECRET is undefined or null."
-      );
+      console.error("JWT_SECRET is not set.");
       // We explicitly throw an error to make sure it's caught
       throw new Error("JWT_SECRET is not defined in .env file");
     }
 
-    console.log("[DEBUG] JWT_SECRET is present. Signing token...");
-
     // Sign the token
     jwt.sign(payload, secret, { expiresIn: "30d" }, (err, token) => {
       if (err) {
-        console.error("[DEBUG] !!! JWT SIGNING ERROR !!!", err.message);
+        console.error("JWT signing error:", err.message);
         throw err; // Re-throw to trigger the catch block
       }
-      console.log("[DEBUG] JWT signing successful.\n");
       res.json({ token, user: payload.user });
     });
   } catch (error) {
     // This will catch any error
-    console.error("[DEBUG] Login route failed in catch block:", error.message);
+    console.error("Login failed:", error.message);
     res.status(500).send("Server Error");
   }
 });
 
 // @route   POST /api/auth/forgot-password
-// @desc    Request password reset (generates token)
-// @access  Public
-router.post("/forgot-password", async (req, res) => {
-  const { username } = req.body;
+// @desc    Start a password reset. The caller must know the deployment's RECOVERY_KEY
+//          (a secret kept by the shop owner). Without it nobody can reset a password —
+//          the old version returned a reset token to anyone who knew a username.
+// @access  Public (rate-limited)
+router.post("/forgot-password", limitAttempts, async (req, res) => {
+  const { username, recoveryKey } = req.body || {};
+  const expected = process.env.RECOVERY_KEY || "";
+
+  if (!expected) {
+    return res.status(403).json({
+      message: "Password reset is not enabled. Ask the shop owner to reset your password from Settings, or contact Infovion support.",
+    });
+  }
+  if (!username || !recoveryKey || !safeEqual(String(recoveryKey), expected)) {
+    return res.status(400).json({ message: "Username or recovery key is incorrect." });
+  }
 
   try {
     const user = await User.findOne({ username });
-
     if (!user) {
-      return res.json({
-        message:
-          "If the user exists, a password reset link has been processed. Check the server logs (or email service, when implemented).",
-      });
+      return res.status(400).json({ message: "Username or recovery key is incorrect." });
     }
 
     const resetToken = crypto.randomBytes(20).toString("hex");
-    const tokenHash = crypto
-      .createHash("sha256")
-      .update(resetToken)
-      .digest("hex");
-
-    user.resetPasswordToken = tokenHash;
-    user.resetPasswordExpire = Date.now() + 60 * 60 * 1000; // 1 hour
+    user.resetPasswordToken = crypto.createHash("sha256").update(resetToken).digest("hex");
+    user.resetPasswordExpire = Date.now() + 15 * 60 * 1000; // 15 minutes
     await user.save();
 
-    console.log(
-      `\n\n--- PASSWORD RESET TOKEN for ${username}: ${resetToken} ---\n\n`
-    );
-
-    res.json({
-      message: "Reset token generated successfully.",
-      dev_token: resetToken,
-    });
+    res.json({ message: "Recovery key accepted. Set a new password.", resetToken });
   } catch (error) {
-    console.error(error.message);
+    console.error("forgot-password failed:", error.message);
     res.status(500).send("Server Error");
   }
 });
@@ -208,6 +220,10 @@ router.post("/change-password", auth, async (req, res) => {
       .json({ message: "Please provide old and new passwords." });
   }
 
+  if (String(newPassword).length < 6) {
+    return res.status(400).json({ message: "New password must be at least 6 characters long." });
+  }
+
   if (oldPassword === newPassword) {
     return res.status(400).json({
       message: "New password must be different from the old password.",
@@ -236,6 +252,40 @@ router.post("/change-password", auth, async (req, res) => {
     console.error(error.message);
     res.status(500).send("Server Error");
   }
+});
+
+// @route   POST /api/auth/reset-user-password
+// @desc    The owner sets a new password for a staff member (or themselves)
+// @access  Private — owner only
+router.post("/reset-user-password", auth, async (req, res) => {
+  if (req.user.role !== "owner") {
+    return res.status(403).json({ message: "Only the owner can reset passwords." });
+  }
+  const { username, newPassword } = req.body || {};
+  if (!username || !newPassword || String(newPassword).length < 6) {
+    return res.status(400).json({ message: "Give a username and a new password of at least 6 characters." });
+  }
+  try {
+    const user = await User.findOne({ username });
+    if (!user) return res.status(404).json({ message: "User not found." });
+    user.password = await bcrypt.hash(newPassword, await bcrypt.genSalt(10));
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
+    await user.save();
+    res.json({ message: `Password updated for ${username}.` });
+  } catch (error) {
+    console.error("reset-user-password failed:", error.message);
+    res.status(500).send("Server Error");
+  }
+});
+
+// @route   GET /api/auth/users
+// @desc    List users (names and roles only)
+// @access  Private — owner only
+router.get("/users", auth, async (req, res) => {
+  if (req.user.role !== "owner") return res.status(403).json({ message: "Owner only." });
+  const users = await User.find({}, { username: 1, role: 1, createdAt: 1 }).sort({ createdAt: 1 });
+  res.json(users);
 });
 
 module.exports = router;

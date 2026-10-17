@@ -4,6 +4,7 @@ import Cart from "../components/pos/Cart";
 import Modal from "../components/common/Modal";
 import InvoicePreview from "../components/pos/InvoicePreview";
 import { getProducts, createSale, getSettings } from "../services/api";
+import { gstSummary } from "../utils/billing";
 import {
   FiShoppingCart,
   FiUser,
@@ -96,10 +97,15 @@ const PosPage = () => {
         {
           ...productToAdd,
           quantity: 1,
-          sellingWeight: productToAdd.weight || 0,
+          sellingWeight: isBulk
+            ? 0
+            : productInDb.stock > 0
+              ? Math.round((productInDb.weight / productInDb.stock) * 1000) / 1000
+              : productToAdd.weight || 0,
           sellingPricePerGram: productToAdd.pricePerGram || 0,
           sellingPurity: productToAdd.purity || "",
           makingChargePerGram: 0,
+          huid: "",
         },
       ];
     });
@@ -146,6 +152,9 @@ const PosPage = () => {
   const handleUpdateCartMakingCharge = (productId, charge) =>
     setCartItems((prev) => prev.map((item) => item._id === productId ? { ...item, makingChargePerGram: charge } : item));
 
+  const handleUpdateCartHuid = (productId, huid) =>
+    setCartItems((prev) => prev.map((item) => item._id === productId ? { ...item, huid } : item));
+
   const handleGenerateInvoice = () => {
     if (cartItems.length === 0) {
       alert("Cart is empty.");
@@ -166,6 +175,11 @@ const PosPage = () => {
       alert(`Error: Please enter a valid Weight and Price/Gram for "${invalidItem.name}".`);
       return;
     }
+    const badHuid = cartItems.find((item) => item.huid && !/^[A-Z0-9]{6}$/.test(item.huid));
+    if (badHuid) {
+      alert(`HUID for "${badHuid.name}" must be exactly 6 letters/digits (or leave it empty).`);
+      return;
+    }
     setConfirmedSaleData(null);
     setIsInvoiceModalOpen(true);
   };
@@ -183,6 +197,7 @@ const PosPage = () => {
           sellingPricePerGram: item.sellingPricePerGram,
           sellingPurity: item.sellingPurity,
           makingChargePerGram: item.makingChargePerGram || 0,
+          huid: item.huid || "",
         })),
         subtotal: saleDataFromModal.subtotal,
         totalMakingCharges: saleDataFromModal.totalMakingCharges,
@@ -197,6 +212,10 @@ const PosPage = () => {
         gstAmount: saleDataFromModal.gstAmount || 0,
         cgstAmount: saleDataFromModal.cgstAmount || 0,
         sgstAmount: saleDataFromModal.sgstAmount || 0,
+        taxableAmount: saleDataFromModal.taxableAmount,
+        taxMode: saleDataFromModal.taxMode,
+        gstMetalRate: saleDataFromModal.gstMetalRate,
+        gstMakingRate: saleDataFromModal.gstMakingRate,
       };
 
       const response = await createSale(salePayload);
@@ -378,7 +397,7 @@ const PosPage = () => {
                       <p className="font-semibold text-amber-900 text-sm">Apply GST on this bill</p>
                       <p className="text-xs text-amber-700 mt-0.5">
                         {applyGst
-                          ? "GST active — Metal 3% (CGST+SGST), Making 5% (CGST+SGST)"
+                          ? gstSummary()
                           : "GST not applied to this invoice"}
                       </p>
                     </div>
@@ -413,6 +432,7 @@ const PosPage = () => {
             onUpdateWeight={handleUpdateCartWeight}
             onUpdatePurity={handleUpdateCartPurity}
             onUpdateMakingCharge={handleUpdateCartMakingCharge}
+            onUpdateHuid={handleUpdateCartHuid}
           />
         </div>
       </div>

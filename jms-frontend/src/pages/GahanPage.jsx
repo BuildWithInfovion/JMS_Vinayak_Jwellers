@@ -1,7 +1,7 @@
 // frontend/src/pages/GahanPage.jsx
 import React, { useState, useEffect, useMemo } from "react";
 import Modal from "../components/common/Modal";
-import { addGahan, getGahanRecords, releaseGahan } from "../services/api";
+import { addGahan, getGahanRecords, releaseGahan, getGahanSettlement } from "../services/api";
 import GahanReceiptModal from "../components/gahan/GahanReceiptModal";
 import {
   FiTrendingUp,
@@ -18,6 +18,10 @@ const GahanPage = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [selectedGahan, setSelectedGahan] = useState(null);
+  // Release dialog: interest due today, editable before confirming
+  const [releasing, setReleasing] = useState(null);
+  const [releaseInterest, setReleaseInterest] = useState("");
+  const [releaseBusy, setReleaseBusy] = useState(false);
   const initialFormData = {
     customerName: "",
     customerAddress: "",
@@ -103,19 +107,42 @@ const GahanPage = () => {
     }
   };
 
+  // Interest so far: simple monthly interest counted by days (30 days = 1 month)
+  const interestToDate = (record) => {
+    const days = Math.max(0, Math.ceil((Date.now() - new Date(record.pawnDate)) / 86400000));
+    return (record.amountGiven * (record.interestRate / 100) * days) / 30;
+  };
+
   const handleRelease = async (id) => {
-    if (!window.confirm("Are you sure you want to mark this item as released?"))
-      return;
+    const record = gahanRecords.find((r) => r._id === id);
     try {
-      await releaseGahan(id);
+      const { data } = await getGahanSettlement(id);
+      setReleasing({ record, ...data });
+      setReleaseInterest(String(data.interest));
+    } catch {
+      const interest = Math.round(interestToDate(record) * 100) / 100;
+      setReleasing({ record, interest, principal: record.amountGiven, days: null });
+      setReleaseInterest(String(interest));
+    }
+  };
+
+  const confirmRelease = async () => {
+    const interest = parseFloat(releaseInterest);
+    if (!Number.isFinite(interest) || interest < 0) {
+      alert("Enter the interest received (0 or more).");
+      return;
+    }
+    setReleaseBusy(true);
+    try {
+      await releaseGahan(releasing.record._id, interest);
+      setReleasing(null);
       fetchGahanRecords();
       alert("Gahan item released successfully!");
     } catch (error) {
       console.error("Failed to release Gahan item:", error);
-      alert(
-        "Error releasing item: " +
-          (error.response?.data?.message || "Server error")
-      );
+      alert("Error releasing item: " + (error.response?.data?.message || "Server error"));
+    } finally {
+      setReleaseBusy(false);
     }
   };
 
@@ -314,6 +341,9 @@ const GahanPage = () => {
                 <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">
                   Interest%
                 </th>
+                <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">
+                  Interest to date
+                </th>
                 <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                   Pawn Date
                 </th>
@@ -328,7 +358,7 @@ const GahanPage = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredRecords.length === 0 ? (
                 <tr>
-                  <td colSpan="9" className="text-center py-12">
+                  <td colSpan="10" className="text-center py-12">
                     <div className="flex flex-col items-center">
                       <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-3">
                         <FiTrendingUp className="w-8 h-8 text-gray-400" />
@@ -374,6 +404,9 @@ const GahanPage = () => {
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-right text-gray-600">
                         {record.interestRate}%
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-right font-semibold text-gray-800">
+                        ₹{interestToDate(record).toFixed(2)}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
                         {formatDate(record.pawnDate)}
@@ -599,6 +632,34 @@ const GahanPage = () => {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* Release Modal: principal + interest collected */}
+      <Modal isOpen={!!releasing} onClose={() => setReleasing(null)} title="Release pledge">
+        {releasing && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              <b>{releasing.record.customerName}</b> · {releasing.record.itemName} · pledged {formatDate(releasing.record.pawnDate)}
+              {releasing.days != null && <> · {releasing.days} days</>}
+            </p>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="bg-gray-50 rounded-xl p-3"><p className="text-gray-500">Principal</p><p className="text-lg font-bold">₹{Number(releasing.principal).toFixed(2)}</p></div>
+              <div className="bg-amber-50 rounded-xl p-3"><p className="text-gray-500">Interest at {releasing.record.interestRate}% / month</p><p className="text-lg font-bold text-amber-700">₹{Number(releasing.interest).toFixed(2)}</p></div>
+            </div>
+            <label className="block text-sm font-semibold text-gray-700">
+              Interest received (₹)
+              <input type="number" min="0" step="0.01" value={releaseInterest} onChange={(e) => setReleaseInterest(e.target.value)}
+                className="mt-1 block w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-green-500" />
+            </label>
+            <p className="text-sm text-gray-700">Total to collect: <b>₹{(Number(releasing.principal) + (parseFloat(releaseInterest) || 0)).toFixed(2)}</b></p>
+            <div className="flex justify-end space-x-3 pt-2">
+              <button type="button" onClick={() => setReleasing(null)} className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700">Cancel</button>
+              <button type="button" disabled={releaseBusy} onClick={confirmRelease} className="px-5 py-2 rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold disabled:opacity-50">
+                {releaseBusy ? "Releasing…" : "Confirm release"}
+              </button>
+            </div>
+          </div>
+        )}
       </Modal>
 
       {/* View Modal */}

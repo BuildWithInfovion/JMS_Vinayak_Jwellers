@@ -22,12 +22,6 @@ router.get("/", async (req, res) => {
 
 // POST /api/sales - Create a new sale and deduct stock (Protected)
 router.post("/", async (req, res) => {
-  // *** DEBUG LOG: Print what the frontend sent ***
-  console.log("--- NEW SALE REQUEST RECEIVED ---");
-  console.log("Discount received:", req.body.discount);
-  console.log("Old Gold Weight received:", req.body.oldGoldWeight);
-  // **********************************************
-
   const {
     items,
     totalAmount,
@@ -43,6 +37,10 @@ router.post("/", async (req, res) => {
     gstAmount,
     cgstAmount,
     sgstAmount,
+    taxableAmount,
+    taxMode,
+    gstMetalRate,
+    gstMakingRate,
   } = req.body;
 
   if (!items || items.length === 0 || !totalAmount || !customerMobile) {
@@ -71,12 +69,14 @@ router.post("/", async (req, res) => {
             `Insufficient stock for: ${item.name}. Available: ${product.stock}`
           );
         }
-        if (product.weight < item.sellingWeight) {
+        // sellingWeight is the weight of ONE piece; several pieces take that many times the weight
+        const soldWeight = Math.round(item.sellingWeight * (item.quantity || 1) * 1000) / 1000;
+        if (product.weight + 0.0005 < soldWeight) {
           throw new Error(
             `Insufficient weight for ${item.name}. Only ${product.weight}g left.`
           );
         }
-        product.weight -= item.sellingWeight;
+        product.weight = Math.max(0, Math.round((product.weight - soldWeight) * 1000) / 1000);
         product.stock -= item.quantity;
       } else if (product.type === "bulk_weight") {
         if (product.weight < item.sellingWeight) {
@@ -102,6 +102,7 @@ router.post("/", async (req, res) => {
         sellingPricePerGram: item.sellingPricePerGram,
         sellingPurity: item.sellingPurity,
         makingChargePerGram: item.makingChargePerGram,
+        huid: /^[A-Za-z0-9]{6}$/.test(item.huid || "") ? item.huid.toUpperCase() : "",
       });
     }
 
@@ -121,11 +122,11 @@ router.post("/", async (req, res) => {
       gstAmount: gstAmount || 0,
       cgstAmount: cgstAmount || 0,
       sgstAmount: sgstAmount || 0,
+      taxableAmount,
+      taxMode: taxMode === "v2" ? "v2" : "",
+      gstMetalRate,
+      gstMakingRate,
     });
-
-    // *** DEBUG LOG: Check what Mongoose is about to save ***
-    console.log("Saving Sale Object:", newSale);
-    // ******************************************************
 
     await newSale.save({ session });
 

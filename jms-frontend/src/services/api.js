@@ -32,8 +32,8 @@ export const login = (username, password) => {
 // **********************************************
 // NEW FUNCTION: Forgot Password (Request Token)
 // **********************************************
-export const forgotPassword = (username) => {
-  return axios.post(`${API_BASE_URL}/api/auth/forgot-password`, { username });
+export const forgotPassword = (username, recoveryKey) => {
+  return axios.post(`${API_BASE_URL}/api/auth/forgot-password`, { username, recoveryKey });
 };
 
 // **********************************************
@@ -105,9 +105,12 @@ export const getGahanRecords = () => {
   return axios.get(`${API_BASE_URL}/api/gahan`);
 };
 
-export const releaseGahan = (id) => {
-  return axios.put(`${API_BASE_URL}/api/gahan/${id}/release`);
+export const releaseGahan = (id, interestReceived) => {
+  return axios.put(`${API_BASE_URL}/api/gahan/${id}/release`, { interestReceived });
 };
+
+// Interest and amount due today on a pledge
+export const getGahanSettlement = (id) => axios.get(`${API_BASE_URL}/api/gahan/${id}/settlement`);
 
 // --- NEW Function for Gahan Reports ---
 export const getAllGahanRecords = () => {
@@ -121,9 +124,10 @@ export const getActiveDebts = () => {
   return axios.get(`${API_BASE_URL}/api/debt`);
 };
 
-export const addDebtPayment = (debtId, paymentAmount) => {
+export const addDebtPayment = (debtId, paymentAmount, method = "Cash") => {
   return axios.post(`${API_BASE_URL}/api/debt/${debtId}/pay`, {
     paymentAmount,
+    method,
   });
 };
 
@@ -140,4 +144,34 @@ export const getSettings = () => {
 
 export const updateSettings = (settingsData) => {
   return axios.put(`${API_BASE_URL}/api/settings`, settingsData);
+};
+
+// --- Owner: users and passwords ---
+export const getUsers = () => axios.get(`${API_BASE_URL}/api/auth/users`);
+export const resetUserPassword = (username, newPassword) =>
+  axios.post(`${API_BASE_URL}/api/auth/reset-user-password`, { username, newPassword });
+
+// --- Exports for the CA (Tally XML, Excel registers) ---
+export const getExportSummary = (from, to) =>
+  axios.get(`${API_BASE_URL}/api/exports/summary`, { params: { from, to } });
+
+/** Downloads /api/exports/<path> as a file, keeping the server's file name. */
+export const downloadExport = async (path, params) => {
+  try {
+    const res = await axios.get(`${API_BASE_URL}/api/exports/${path}`, { params, responseType: "blob" });
+    const cd = res.headers["content-disposition"] || "";
+    const name = (cd.match(/filename="([^"]+)"/) || [])[1] || `JMS-export-${params.from}-to-${params.to}`;
+    const url = URL.createObjectURL(res.data);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  } catch (err) {
+    let msg = "Export failed.";
+    try { msg = JSON.parse(await err.response.data.text()).message || msg; } catch { /* keep default */ }
+    throw new Error(msg);
+  }
 };

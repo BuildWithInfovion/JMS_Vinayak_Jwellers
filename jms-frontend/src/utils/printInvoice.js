@@ -18,11 +18,14 @@ export const printInvoice = ({
   discount = 0,
   balanceDue = 0,
   gstin = "",
+  // Invoices made before v2 deducted the discount after GST at Metal 1.5% + MC 2.5% (per CGST/SGST)
+  discountBeforeTax = false,
+  rateLabel = "(Metal @1.5% + MC @2.5%)",
 }) => {
   const origin = window.location.origin;
-  const logoUrl = `${origin}/VJ.png`;
+  const logoUrl = siteConfig.shopLogo.startsWith("http") ? siteConfig.shopLogo : `${origin}${siteConfig.shopLogo}`;
   const displayGstin = gstin || siteConfig.gstNumber || "";
-  const taxableAmount = itemsSubtotal + totalMakingCharges;
+  const taxableAmount = itemsSubtotal + totalMakingCharges - (discountBeforeTax ? discount || 0 : 0);
   const date =
     invoiceDate ||
     new Date().toLocaleDateString("en-IN", {
@@ -41,9 +44,10 @@ export const printInvoice = ({
       const mc = item.makingChargePerGram || 0;
       const amount = totalWt * rate + totalWt * mc;
       const nameCell =
-        item.quantity > 1
+        (item.quantity > 1
           ? `${item.name} <span style="color:#b7791f;font-size:8pt;">&#215;${item.quantity}</span>`
-          : item.name;
+          : item.name) +
+        (item.huid ? `<div style="font-size:7.5pt;color:#57534e;">HUID: ${item.huid}</div>` : "");
       return `
         <tr class="${idx % 2 === 1 ? "alt" : ""}">
           <td style="text-align:center;">${idx + 1}</td>
@@ -61,15 +65,15 @@ export const printInvoice = ({
   // ── Totals blocks ──────────────────────────────────────────────────
   const gstBlock = applyGst
     ? `<tr class="divider-row">
-         <td class="tlabel">Taxable Amount</td>
+         <td class="tlabel">Taxable Value</td>
          <td class="tvalue">${rs(taxableAmount)}</td>
        </tr>
        <tr>
-         <td class="tlabel small">CGST <span class="rate">(Metal @1.5% + MC @2.5%)</span></td>
+         <td class="tlabel small">CGST <span class="rate">${rateLabel}</span></td>
          <td class="tvalue">${rs(cgstAmount)}</td>
        </tr>
        <tr>
-         <td class="tlabel small">SGST <span class="rate">(Metal @1.5% + MC @2.5%)</span></td>
+         <td class="tlabel small">SGST <span class="rate">${rateLabel}</span></td>
          <td class="tvalue">${rs(sgstAmount)}</td>
        </tr>`
     : "";
@@ -77,7 +81,7 @@ export const printInvoice = ({
   const advanceBlock =
     (advancePayment || 0) > 0
       ? `<tr>
-           <td class="tlabel" style="color:#14532d;">Advance Paid</td>
+           <td class="tlabel" style="color:#14532d;">${discountBeforeTax ? "Advance / Old Gold" : "Advance Paid"}</td>
            <td class="tvalue" style="color:#14532d;">&minus; ${rs(advancePayment)}</td>
          </tr>`
       : "";
@@ -85,7 +89,7 @@ export const printInvoice = ({
   const discountBlock =
     (discount || 0) > 0
       ? `<tr>
-           <td class="tlabel" style="color:#6d28d9;">Discount</td>
+           <td class="tlabel" style="color:#6d28d9;">${discountBeforeTax ? "Less: Discount" : "Discount"}</td>
            <td class="tvalue" style="color:#6d28d9;">&minus; ${rs(discount)}</td>
          </tr>`
       : "";
@@ -326,7 +330,7 @@ export const printInvoice = ({
 <div class="header">
   <img src="${logoUrl}" alt="" class="logo" onerror="this.style.display='none'">
   <div class="shop-name">${siteConfig.shopName}</div>
-  <div class="shop-tagline">सोने चांदीचे व्यापारी</div>
+  ${siteConfig.shopTagline ? `<div class="shop-tagline">${siteConfig.shopTagline}</div>` : ""}
   <div class="shop-meta">
     ${siteConfig.ownerName} &nbsp;|&nbsp; मो: ${siteConfig.ownerMobile} &nbsp;|&nbsp; ${siteConfig.shopAddress}
   </div>
@@ -389,13 +393,14 @@ export const printInvoice = ({
       <td class="tlabel">Making Charges</td>
       <td class="tvalue">${rs(totalMakingCharges)}</td>
     </tr>
+    ${discountBeforeTax ? discountBlock : ""}
     ${gstBlock}
     <tr class="grand-total-row">
       <td class="tlabel">एकूण रक्कम <span class="sub" style="color:#57534e;">Grand Total</span></td>
       <td class="tvalue">${rs(grandTotal)}</td>
     </tr>
     ${advanceBlock}
-    ${discountBlock}
+    ${discountBeforeTax ? "" : discountBlock}
     <tr class="balance-row">
       <td class="tlabel">देय रक्कम <span class="sub" style="color:#b45309;">Net Payable</span></td>
       <td class="tvalue">${rs(balanceDue)}</td>

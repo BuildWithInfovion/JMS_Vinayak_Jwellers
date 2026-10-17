@@ -3,7 +3,7 @@ import React from "react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { NotoSansDevanagariBase64 } from "../../utils/NotoSansDevanagariFont"; // Import the font
-import VJLogo from "/VJ.png"; // Import the logo
+import { siteConfig } from "../../utils/siteConfig";
 
 const GahanReceiptModal = ({ gahanRecord, onClose }) => {
   if (!gahanRecord) return null;
@@ -54,7 +54,7 @@ const GahanReceiptModal = ({ gahanRecord, onClose }) => {
 
     // 1. Logo
     try {
-      doc.addImage(VJLogo, "PNG", MARGIN, 10, 30, 15); // x, y, w, h
+      doc.addImage(siteConfig.shopLogo, "PNG", MARGIN, 10, 30, 15); // x, y, w, h
     } catch (e) {
       console.error("Error adding logo:", e);
     }
@@ -62,7 +62,7 @@ const GahanReceiptModal = ({ gahanRecord, onClose }) => {
     // 2. Header (Shop Details & Title)
     doc.setFontSize(18);
     doc.setFont("NotoSansDevanagari", "normal");
-    doc.text("Vinayak Jewellers, Gangakhed", A5_WIDTH / 2, 15, {
+    doc.text(siteConfig.shopName, A5_WIDTH / 2, 15, {
       align: "center",
     });
 
@@ -74,7 +74,7 @@ const GahanReceiptModal = ({ gahanRecord, onClose }) => {
 
     doc.setFontSize(10);
     doc.setFont("NotoSansDevanagari");
-    doc.text("Prop. Vinayak D. Dishe | Mo. 9421462257", A5_WIDTH / 2, 28, {
+    doc.text(`${siteConfig.ownerName} | Mo. ${siteConfig.ownerMobile}`, A5_WIDTH / 2, 28, {
       align: "center",
     });
 
@@ -199,10 +199,10 @@ const GahanReceiptModal = ({ gahanRecord, onClose }) => {
       <div>
         {/* Header */}
         <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-300">
-          <img src="/VJ.png" alt="Logo" className="h-16 w-auto" />
+          <img src={siteConfig.shopLogo} alt="" className="h-16 w-auto" />
           <div className="text-right">
             <h2 className="text-xl md:text-2xl font-bold">
-              Vinayak Jewellers, Gangakhed
+              {siteConfig.shopName}
             </h2>
             <p className="text-sm font-semibold">Gahan Receipt (गहाण पावती)</p>
           </div>

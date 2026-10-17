@@ -5,6 +5,7 @@ import { toast } from "react-toastify";
 import { siteConfig } from "../../utils/siteConfig";
 import { printInvoice } from "../../utils/printInvoice";
 import { downloadInvoicePDF, shareInvoiceToWhatsApp } from "../../utils/invoicePDF";
+import { taxPresentation } from "../../utils/billing";
 
 const SaleDetailModal = ({ sale, onClose, gstNumber }) => {
   if (!sale) return null;
@@ -14,6 +15,9 @@ const SaleDetailModal = ({ sale, onClose, gstNumber }) => {
   });
 
   const hasGst = (sale.gstAmount || 0) > 0;
+  // Older sales keep their original tax layout; v2 sales show the discount before GST
+  const { discountBeforeTax, rateLabel } = taxPresentation(sale);
+  const taxable = (sale.subtotal || 0) + (sale.totalMakingCharges || 0) - (discountBeforeTax ? sale.discount || 0 : 0);
   const displayGstNumber = gstNumber || siteConfig.gstNumber;
 
   // Recompute item line totals from stored data
@@ -43,6 +47,8 @@ const SaleDetailModal = ({ sale, onClose, gstNumber }) => {
       discount: sale.discount || 0,
       balanceDue: sale.balanceDue || 0,
       gstin: gstNumber,
+      discountBeforeTax,
+      rateLabel,
     });
   };
 
@@ -66,6 +72,8 @@ const SaleDetailModal = ({ sale, onClose, gstNumber }) => {
         discount: sale.discount || 0,
         balanceDue: sale.balanceDue || 0,
         gstin: gstNumber,
+        discountBeforeTax,
+        rateLabel,
       },
       {
         onFallback: () =>
@@ -95,6 +103,8 @@ const SaleDetailModal = ({ sale, onClose, gstNumber }) => {
       discount: sale.discount || 0,
       balanceDue: sale.balanceDue || 0,
       gstin: gstNumber,
+      discountBeforeTax,
+      rateLabel,
     });
   };
 
@@ -108,9 +118,9 @@ const SaleDetailModal = ({ sale, onClose, gstNumber }) => {
 
         {/* Shop Header */}
         <div className="text-center mb-5 pb-4 border-b-2 border-gray-300">
-          <img src="/VJ.png" alt="Logo" className="h-14 w-auto mx-auto mb-2" />
+          <img src={siteConfig.shopLogo} alt="" className="h-14 w-auto mx-auto mb-2" />
           <h1 className="text-xl font-extrabold text-gray-900">{siteConfig.shopName}</h1>
-          <p className="text-sm text-gray-500">सोने चांदीचे व्यापारी</p>
+          {siteConfig.shopTagline && <p className="text-sm text-gray-500">{siteConfig.shopTagline}</p>}
           <p className="text-xs text-gray-600 mt-0.5">
             {siteConfig.ownerName} &nbsp;|&nbsp; Mo: {siteConfig.ownerMobile}
           </p>
@@ -166,6 +176,7 @@ const SaleDetailModal = ({ sale, onClose, gstNumber }) => {
                 <td className="py-2 px-2 text-gray-500">{idx + 1}</td>
                 <td className="py-2 px-2 font-medium text-gray-900">
                   {item.name}
+                  {item.huid && <span className="block text-xs text-gray-500">HUID: {item.huid}</span>}
                   {item.quantity > 1 && <span className="ml-1 text-xs text-gray-500">(×{item.quantity})</span>}
                 </td>
                 <td className="py-2 px-2 text-center text-gray-600">{item.sellingPurity || "—"}</td>
@@ -189,33 +200,39 @@ const SaleDetailModal = ({ sale, onClose, gstNumber }) => {
               <span>Making Charges</span>
               <span>₹{(sale.totalMakingCharges || 0).toFixed(2)}</span>
             </div>
+            {discountBeforeTax && (sale.discount || 0) > 0 && (
+              <div className="flex justify-between text-purple-700">
+                <span>Less: Discount</span>
+                <span>– ₹{sale.discount.toFixed(2)}</span>
+              </div>
+            )}
             {hasGst && (
               <>
                 <div className="border-t border-gray-200 pt-1 flex justify-between text-gray-600">
-                  <span>Taxable Amount</span>
-                  <span>₹{((sale.subtotal || 0) + (sale.totalMakingCharges || 0)).toFixed(2)}</span>
+                  <span>Taxable Value</span>
+                  <span>₹{taxable.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-gray-700">
-                  <span>CGST <span className="text-xs text-gray-400">(Metal 1.5% + MC 2.5%)</span></span>
+                  <span>CGST <span className="text-xs text-gray-400">{rateLabel}</span></span>
                   <span>₹{(sale.cgstAmount || 0).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-gray-700">
-                  <span>SGST <span className="text-xs text-gray-400">(Metal 1.5% + MC 2.5%)</span></span>
+                  <span>SGST <span className="text-xs text-gray-400">{rateLabel}</span></span>
                   <span>₹{(sale.sgstAmount || 0).toFixed(2)}</span>
                 </div>
               </>
             )}
             <div className="flex justify-between font-bold text-base border-t-2 border-gray-800 pt-2">
-              <span>Grand Total</span>
+              <span>{discountBeforeTax ? "Invoice Total" : "Grand Total"}</span>
               <span>₹{(sale.totalAmount || 0).toFixed(2)}</span>
             </div>
             {(sale.advancePayment || 0) > 0 && (
               <div className="flex justify-between text-green-700">
-                <span>Advance Paid</span>
+                <span>{discountBeforeTax ? "Advance / Old Gold" : "Advance Paid"}</span>
                 <span>– ₹{sale.advancePayment.toFixed(2)}</span>
               </div>
             )}
-            {(sale.discount || 0) > 0 && (
+            {!discountBeforeTax && (sale.discount || 0) > 0 && (
               <div className="flex justify-between text-purple-700">
                 <span>Discount</span>
                 <span>– ₹{sale.discount.toFixed(2)}</span>

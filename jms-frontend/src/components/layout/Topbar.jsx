@@ -1,6 +1,7 @@
 // frontend/src/components/layout/Topbar.jsx
 import React from "react";
-// Simple Menu icon (you can replace with an SVG later)
+import { useLocation } from "react-router-dom";
+
 const MenuIcon = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -18,16 +19,28 @@ const MenuIcon = () => (
   </svg>
 );
 
-// Add onToggleSidebar prop
+// Title shown in the top bar for each screen
+const TITLES = {
+  "/": "Dashboard",
+  "/inventory": "Stock",
+  "/pos": "Point of Sale",
+  "/reports": "Sales Reports",
+  "/gahan": "Gahan (Gold Loans)",
+  "/gahan-reports": "Gahan Reports",
+  "/debt": "Udhaar (Pending Payments)",
+  "/settings": "Settings",
+};
+
 const Topbar = ({ onToggleSidebar }) => {
-  // We'll get the dynamic title later if needed
-  const pageTitle = "Dashboard";
+  const { pathname } = useLocation();
+  const pageTitle = TITLES[pathname.replace(/\/+$/, "") || "/"] || "";
 
   return (
     <header className="bg-white shadow p-4 flex items-center justify-between">
       {/* Menu Button - visible only on mobile */}
       <button
         onClick={onToggleSidebar}
+        aria-label="Open menu"
         className="text-gray-500 focus:outline-none focus:text-gray-700 md:hidden"
       >
         <MenuIcon />
@@ -35,7 +48,6 @@ const Topbar = ({ onToggleSidebar }) => {
 
       <h2 className="text-xl font-semibold">{pageTitle}</h2>
 
-      {/* Placeholder for potential user profile/logout */}
       <div></div>
     </header>
   );

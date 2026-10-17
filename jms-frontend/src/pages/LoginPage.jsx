@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { useAuth } from "../context/useAuth";
 import { useNavigate } from "react-router-dom";
 // NEW: Import the Site Config
-import { siteConfig } from "../utils/siteConfig";
+import { siteConfig, APP_VERSION } from "../utils/siteConfig";
 
 import {
   FaUser,
@@ -13,7 +13,7 @@ import {
   FaEnvelope,
   FaKey,
 } from "react-icons/fa";
-import buildwithinfovionLogo from "../assets/buildwithinfovion-logo.svg";
+import infovionMark from "../assets/infovion-mark.png";
 import { toast } from "react-toastify";
 import { forgotPassword, resetPassword } from "../services/api";
 
@@ -77,6 +77,7 @@ const LoginPage = () => {
   // --- NEW STATE for Forgot Password Flow ---
   const [view, setView] = useState("login"); // 'login', 'forgot', 'reset'
   const [resetUsername, setResetUsername] = useState("");
+  const [recoveryKey, setRecoveryKey] = useState("");
   const [resetToken, setResetToken] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -111,14 +112,14 @@ const LoginPage = () => {
     e.preventDefault();
     setIsLoading(true);
     try {
-      const { data } = await forgotPassword(resetUsername);
-      if (data?.dev_token) {
-        setResetToken(data.dev_token);
-        toast.success("Token generated. Enter your new password below.");
-      } else {
-        toast.error("Username not found. Please check and try again.");
+      const { data } = await forgotPassword(resetUsername, recoveryKey);
+      if (!data?.resetToken) {
+        toast.error("Username or recovery key is incorrect.");
         return;
       }
+      setResetToken(data.resetToken);
+      setRecoveryKey("");
+      toast.success("Recovery key accepted. Enter your new password below.");
       setView("reset");
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to initiate reset.");
@@ -238,7 +239,7 @@ const LoginPage = () => {
   const renderForgotPasswordForm = () => (
     <form className="space-y-6" onSubmit={handleForgotPassword}>
       <p className="text-sm text-gray-300 text-center">
-        Enter your username to request a password reset token.
+        Enter your username and the shop's recovery key. Staff: ask the owner to reset your password from Settings.
       </p>
       <div className="relative group">
         <label htmlFor="reset-username" className="sr-only">
@@ -255,6 +256,26 @@ const LoginPage = () => {
           value={resetUsername}
           onChange={(e) => setResetUsername(e.target.value)}
           placeholder="Enter your username"
+          className="block w-full pl-12 pr-4 py-4 bg-white/5 border-2 border-white/10 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all duration-300 backdrop-blur-lg"
+        />
+      </div>
+
+      <div className="relative group">
+        <label htmlFor="recovery-key" className="sr-only">
+          Recovery key
+        </label>
+        <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+          <FaKey className="w-5 h-5 text-gray-400 group-focus-within:text-blue-400 transition-colors duration-300" />
+        </div>
+        <input
+          id="recovery-key"
+          name="recovery-key"
+          type="password"
+          required
+          autoComplete="off"
+          value={recoveryKey}
+          onChange={(e) => setRecoveryKey(e.target.value)}
+          placeholder="Recovery key"
           className="block w-full pl-12 pr-4 py-4 bg-white/5 border-2 border-white/10 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all duration-300 backdrop-blur-lg"
         />
       </div>
@@ -282,7 +303,7 @@ const LoginPage = () => {
   const renderResetPasswordForm = () => (
     <form className="space-y-6" onSubmit={handleResetPassword}>
       <p className="text-sm text-gray-300 text-center">
-        Token verified. Enter your new password below.
+        Recovery key accepted. Enter your new password below.
       </p>
       <input type="hidden" value={resetToken} readOnly />
 
@@ -364,12 +385,12 @@ const LoginPage = () => {
 
       <div className="relative w-full max-w-md mx-4">
         <div className="relative bg-white/5 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/10 p-8 space-y-8">
-          {/* Floating VJ Logo */}
+          {/* Floating shop logo */}
           <div className="absolute -top-16 left-1/2 transform -translate-x-1/2">
             <div className="w-28 h-28 bg-white backdrop-blur-lg rounded-2xl shadow-2xl border-4 border-amber-400/30 p-3 overflow-hidden">
               <img
-                src="/VJ.png"
-                alt="Logo"
+                src={siteConfig.shopLogo}
+                alt={siteConfig.shopName}
                 className="w-full h-full object-contain"
               />
             </div>
@@ -395,24 +416,24 @@ const LoginPage = () => {
           {/* Form Area */}
           {renderView()}
 
-          {/* Footer - BuildwithInfovion Branding */}
+          {/* Footer - Infovion Branding */}
           <div className="pt-6 border-t border-white/10">
             <div className="text-center">
               <p className="text-xs text-gray-500 mb-2">Powered by</p>
               <div className="flex items-center justify-center space-x-2.5">
-                <div className="w-7 h-7 bg-white rounded-lg flex items-center justify-center shadow-md p-1 border border-gray-200/20">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center shadow-md overflow-hidden bg-[#0f172a] border border-gray-200/20">
                   <img
-                    src={buildwithinfovionLogo}
-                    alt="BuildwithInfovion"
+                    src={infovionMark}
+                    alt="Infovion"
                     className="w-full h-full object-contain"
                   />
                 </div>
                 <p className="text-sm font-bold bg-gradient-to-r from-teal-200 to-blue-200 bg-clip-text text-transparent">
-                  BuildwithInfovion
+                  Infovion Technologies
                 </p>
               </div>
               <p className="text-xs text-gray-600 mt-1.5">
-                Jewelry Management System v1.0
+                Infovion JMS · Jewellery Management Software v{APP_VERSION}
               </p>
             </div>
           </div>

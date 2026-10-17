@@ -3,6 +3,7 @@ import { changePassword, getSettings, updateSettings } from "../services/api";
 import { useAuth } from "../context/useAuth";
 import { toast } from "react-toastify";
 import { FiLock, FiShield, FiKey, FiToggleLeft, FiToggleRight, FiSave } from "react-icons/fi";
+import { TallySettings, StaffPasswords } from "../components/settings/OwnerSettings";
 
 const SettingsPage = () => {
   const { user } = useAuth();
@@ -104,6 +105,9 @@ const SettingsPage = () => {
       </div>
 
       <div className="max-w-2xl mx-auto space-y-8">
+        {isOwner && <TallySettings />}
+        {isOwner && <StaffPasswords />}
+
         {/* GST Settings — owner only */}
         {isOwner && (
           <div className="bg-white rounded-2xl shadow-xl border-2 border-gray-100 p-8">

@@ -4,6 +4,7 @@ const router = express.Router();
 const Gahan = require("../models/Gahan");
 const authMiddleware = require("../middleware/authMiddleware");
 const { getNextSequence } = require("../models/Counter"); // <-- Import counter
+const { interestDue } = require("../lib/girvi");
 
 router.use(authMiddleware);
 
@@ -93,6 +94,19 @@ router.get("/all", async (req, res) => {
 });
 // ------------------------------------
 
+// GET /api/gahan/:id/settlement - interest and amount due today (for the release screen)
+router.get("/:id/settlement", async (req, res) => {
+  try {
+    const g = await Gahan.findById(req.params.id);
+    if (!g) return res.status(404).json({ message: "Gahan record not found." });
+    const { days, interest } = interestDue(g);
+    res.json({ days, interest, principal: g.amountGiven, total: Math.round((g.amountGiven + interest) * 100) / 100 });
+  } catch (error) {
+    console.error("Error computing settlement:", error.message);
+    res.status(500).json({ message: "Server error." });
+  }
+});
+
 // GET /api/gahan/:id - Get single record
 router.get("/:id", async (req, res) => {
   /* ... unchanged ... */ try {
@@ -117,8 +131,14 @@ router.put("/:id/release", async (req, res) => {
     if (gahanRecord.status === "Released") {
       return res.status(400).json({ message: "Item already released." });
     }
+    // Interest actually collected: what the owner entered, or the calculated amount
+    const { interest } = interestDue(gahanRecord);
+    const entered = Number(req.body && req.body.interestReceived);
+    const interestReceived = Number.isFinite(entered) && entered >= 0 ? entered : interest;
     gahanRecord.status = "Released";
     gahanRecord.releaseDate = Date.now();
+    gahanRecord.interestReceived = Math.round(interestReceived * 100) / 100;
+    gahanRecord.amountReceived = Math.round((gahanRecord.amountGiven + interestReceived) * 100) / 100;
     await gahanRecord.save();
     res.status(200).json(gahanRecord);
   } catch (error) {

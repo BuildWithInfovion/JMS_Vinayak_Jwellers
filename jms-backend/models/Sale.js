@@ -12,6 +12,8 @@ const soldItemSchema = new mongoose.Schema({
   sellingPricePerGram: { type: Number, required: true },
   sellingPurity: { type: String },
   makingChargePerGram: { type: Number, default: 0 },
+  // Hallmark Unique ID of the piece (BIS), when the jeweller records it at billing
+  huid: { type: String, default: "", trim: true, uppercase: true },
 });
 
 const saleSchema = new mongoose.Schema(
@@ -30,6 +32,12 @@ const saleSchema = new mongoose.Schema(
     cgstAmount: { type: Number, default: 0 },
     sgstAmount: { type: Number, default: 0 },
 
+    // v2 bills: discount applied before GST, GST on the full value incl. making charges
+    taxableAmount: { type: Number },
+    taxMode: { type: String, default: "" },
+    gstMetalRate: { type: Number },
+    gstMakingRate: { type: Number },
+
     totalAmount: { type: Number, required: true },
     advancePayment: { type: Number, default: 0 },
     balanceDue: { type: Number, required: true },
@@ -38,6 +46,8 @@ const saleSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+saleSchema.index({ createdAt: -1 });
 
 const Sale = mongoose.model("Sale", saleSchema);
 module.exports = Sale;

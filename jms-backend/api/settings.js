@@ -5,10 +5,17 @@ const authMiddleware = require("../middleware/authMiddleware");
 
 router.use(authMiddleware);
 
+const { LEDGER_DEFAULTS } = require("./exports");
+
 const DEFAULTS = {
   gst_enabled: false,
   gst_number: "",
+  // Ledger names used in the Tally export (so they match the CA's books)
+  ...LEDGER_DEFAULTS,
 };
+
+// Only these keys can be saved from the app
+const ALLOWED = new Set(Object.keys(DEFAULTS));
 
 // GET /api/settings — returns all settings merged with defaults
 router.get("/", async (req, res) => {
@@ -32,8 +39,8 @@ router.put("/", async (req, res) => {
     return res.status(403).json({ message: "Only owners can change settings." });
   }
   try {
-    const updates = req.body;
-    const ops = Object.entries(updates).map(([key, value]) => ({
+    const updates = req.body || {};
+    const ops = Object.entries(updates).filter(([key]) => ALLOWED.has(key)).map(([key, value]) => ({
       updateOne: {
         filter: { key },
         update: { $set: { key, value } },
