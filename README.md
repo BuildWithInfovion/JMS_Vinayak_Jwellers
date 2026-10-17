@@ -89,6 +89,10 @@ One codebase, one deployment per shop: everything shop-specific comes from envir
 4. Deploy the API first, then the web app. Existing sales, girvi and udhaar records need no migration.
 5. With the CA: fill in Settings → Tally ledgers, export one month, and import it into a test company in TallyPrime before using it on the live books.
 
+## Demo store for sales
+
+Point `MONGO_URI` at an **empty** database whose name contains `demo` (e.g. `jms_demo`) and run `npm run seed:demo` in `jms-backend`. It refuses any other database. Deploy the web app with demo branding (`VITE_SHOP_NAME="Shree Demo Jewellers"`, `VITE_SHOP_NAME_LOCAL=""`, …) on its own URL, e.g. `jms-demo.infovion.in`. Logins: `owner` / `demo123` and `counter1` / `demo123` — change them if the demo is public.
+
 ## Running locally
 
 ```bash
